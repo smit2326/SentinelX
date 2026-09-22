@@ -1,0 +1,16 @@
+{
+  "name": "sentinel-x",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SENTINEL-X Security Platform",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:backend": "python -m uvicorn app.main:app --app-dir backend --port 8000 --reload",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "lint": "npm --prefix frontend run lint",
+    "test:frontend": "npm --prefix frontend run build",
+    "test:backend": "python -m pytest backend/tests",
+    "test": "npm run test:backend && npm --prefix frontend run build"
+  }
+}

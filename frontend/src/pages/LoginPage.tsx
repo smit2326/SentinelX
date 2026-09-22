@@ -17,7 +17,13 @@ export const LoginPage: React.FC = () => {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed. Please check credentials.');
+      if (!err.response) {
+        setError('Backend API is unreachable (http://localhost:8000). Please ensure the FastAPI backend is running.');
+      } else if (err.response.status === 401) {
+        setError('Authentication failed. Invalid email or security passphrase.');
+      } else {
+        setError(err.response?.data?.detail || 'Authentication failed. Please check credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -29,7 +35,11 @@ export const LoginPage: React.FC = () => {
     try {
       await loginAsRole(role);
     } catch (err: any) {
-      setError('Failed to login with preset credentials');
+      if (!err.response) {
+        setError('Backend API is unreachable (http://localhost:8000). Please ensure the FastAPI backend is running.');
+      } else {
+        setError('Failed to login with preset credentials: ' + (err.response?.data?.detail || err.message));
+      }
     } finally {
       setIsLoading(false);
     }

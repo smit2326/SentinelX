@@ -100,7 +100,7 @@ export const AlertsPage: React.FC = () => {
             INCIDENT RESPONSE &amp; TRAFFIC MONITORING
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Real-time TCP/UDP traffic anomaly detection, brute force alerts, and IoT RTSP stream hijacking forensics.
+            Phase-1 Emulation: Simulated traffic anomaly generation, synthetic brute-force alerts, and demo RTSP stream hijacking forensics.
           </p>
         </div>
 
@@ -123,6 +123,21 @@ export const AlertsPage: React.FC = () => {
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      {/* Phase-1 Simulation Scope Notice */}
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 font-bold border border-amber-500/40 text-[10px]">
+            SYNTHETIC TELEMETRY
+          </span>
+          <span className="text-slate-300 text-[11px]">
+            All incidents in this queue are simulated scenarios generated to evaluate risk correlation and analyst triage.
+          </span>
+        </div>
+        <span className="text-[10px] text-slate-400 hidden sm:inline">
+          LIVE TAP / SPAN MIRRORING DEFERRED TO PHASE 2
+        </span>
       </div>
 
       {/* KPI Stats */}
@@ -214,6 +229,9 @@ export const AlertsPage: React.FC = () => {
                         <Badge size="sm" variant={alert.severity.toLowerCase() as any}>
                           {alert.severity}
                         </Badge>
+                        <span className="text-[10px] font-mono uppercase text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
+                          SIMULATED
+                        </span>
                         <span className="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800">
                           {alert.category}
                         </span>
@@ -247,9 +265,14 @@ export const AlertsPage: React.FC = () => {
           {selectedAlert ? (
             <div className="cyber-card p-6 rounded-2xl border border-slate-700 sticky top-20 font-mono text-xs space-y-4">
               <div className="flex items-center justify-between">
-                <Badge size="md" variant={selectedAlert.severity.toLowerCase() as any}>
-                  {selectedAlert.severity} PRIORITY
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge size="md" variant={selectedAlert.severity.toLowerCase() as any}>
+                    {selectedAlert.severity} PRIORITY
+                  </Badge>
+                  <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-500/40">
+                    SIMULATED SCENARIO
+                  </span>
+                </div>
                 <span className="text-slate-400 text-[11px]">
                   ID #{selectedAlert.id}
                 </span>
@@ -281,9 +304,12 @@ export const AlertsPage: React.FC = () => {
 
               {selectedAlert.raw_packet_hex && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                    <Terminal className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-[10px] uppercase font-bold">RAW PACKET CAPTURE (PCAP HEX)</span>
+                  <div className="flex items-center justify-between text-slate-400 mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Terminal className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-[10px] uppercase font-bold">SYNTHETIC PCAP CAPTURE (HEX DUMP)</span>
+                    </div>
+                    <span className="text-[9px] text-amber-400 font-mono">DEMO PAYLOAD</span>
                   </div>
                   <pre className="p-2.5 rounded-xl bg-black text-[10px] font-mono text-emerald-400 border border-slate-800 overflow-x-auto whitespace-pre-wrap">
                     {selectedAlert.raw_packet_hex}

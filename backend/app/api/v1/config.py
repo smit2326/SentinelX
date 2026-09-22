@@ -67,19 +67,20 @@ async def test_webhook(
 ):
     try:
         payload = {
-            "source": "SENTINEL-X SIEM Dispatcher",
+            "source": "SENTINEL-X SIEM Dispatcher (Simulated)",
             "event": "WEBHOOK_VERIFICATION_TEST",
-            "timestamp": "2026-09-14T20:10:00Z",
-            "status": "HEALTHY",
+            "timestamp": "2026-09-17T12:17:00Z",
+            "status": "SIMULATED_SUCCESS",
+            "phase": "Phase 1 - Sandbox Simulation",
             "actor": current_user.email
         }
-        # In a real environment we dispatch via httpx
-        # async with httpx.AsyncClient(timeout=3.0) as client:
-        #     res = await client.post(webhook_url, json=payload)
+        # In Phase 1, external network egress to live SIEM endpoints is mocked for sandbox safety.
+        # Live dispatch via httpx is scheduled for Phase 2 integration.
         return {
-            "status": "SUCCESS",
-            "message": f"Test payload dispatched successfully to {webhook_url}",
+            "status": "SIMULATED_SUCCESS",
+            "mode": "simulation",
+            "message": f"Simulated verification payload generated for {webhook_url} (Phase 1 Sandbox - live HTTP dispatch deferred to Phase 2)",
             "delivered_payload": payload
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to dispatch webhook: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to generate simulated webhook: {str(e)}")

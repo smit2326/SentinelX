@@ -57,8 +57,12 @@ app.include_router(config_router, prefix=settings.API_V1_STR)
 app.include_router(reports_router, prefix=settings.API_V1_STR)
 app.include_router(telemetry_router, prefix=settings.API_V1_STR)
 
-@app.get("/", tags=["Health"])
-async def root():
+@app.get("/api/health", tags=["Health"])
+async def health_check():
+    return {"status": "HEALTHY", "timestamp": "2026-09-14T20:10:00Z"}
+
+@app.get("/api/info", tags=["Health"])
+async def api_info():
     return {
         "platform": settings.PROJECT_NAME,
         "version": settings.PROJECT_VERSION,
@@ -67,9 +71,34 @@ async def root():
         "api_v1": settings.API_V1_STR
     }
 
-@app.get("/api/health", tags=["Health"])
-async def health_check():
-    return {"status": "HEALTHY", "timestamp": "2026-09-14T20:10:00Z"}
+# Serve compiled frontend UI on port 8000 if dist exists
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+if frontend_dist.exists():
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(frontend_dist / "index.html")
+else:
+    @app.get("/", tags=["Health"])
+    async def root():
+        return {
+            "platform": settings.PROJECT_NAME,
+            "version": settings.PROJECT_VERSION,
+            "status": "OPERATIONAL",
+            "docs": "/docs",
+            "api_v1": settings.API_V1_STR
+        }
 
 if __name__ == "__main__":
     import uvicorn

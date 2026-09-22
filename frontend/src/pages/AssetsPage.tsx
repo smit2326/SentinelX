@@ -101,7 +101,7 @@ export const AssetsPage: React.FC = () => {
             ASSET INVENTORY &amp; CCTV/IOT DISCOVERY
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Automated fingerprinting of network devices, open ports, firmware versions, and video endpoints.
+            Phase-1 Discovery: Automated fingerprinting of network devices, open ports, firmware versions, and video endpoints (Simulated Template Engine).
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export const AssetsPage: React.FC = () => {
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-cyan-500/20"
             >
               <Scan className="h-4 w-4" />
-              <span>DISCOVERY SCAN</span>
+              <span>SIMULATED SCAN</span>
             </button>
           )}
           <button
@@ -299,12 +299,21 @@ export const AssetsPage: React.FC = () => {
               <X className="h-4 w-4" />
             </button>
 
-            <div className="flex items-center gap-2 mb-4">
-              <Scan className="h-5 w-5 text-cyan-400" />
-              <h2 className="text-sm font-bold font-mono text-white uppercase">
-                LAUNCH ASSET DISCOVERY SCAN
-              </h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Scan className="h-5 w-5 text-cyan-400" />
+                <h2 className="text-sm font-bold font-mono text-white uppercase">
+                  SIMULATED ASSET DISCOVERY SCAN
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
+                PHASE 1 EMULATOR
+              </span>
             </div>
+
+            <p className="text-[11px] font-mono text-slate-400 mb-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+              Note: In Phase 1, network discovery sweeps run against calibrated subnet templates to evaluate device fingerprinting and risk correlation without physical raw-socket network permissions.
+            </p>
 
             <form onSubmit={handleTriggerScan} className="space-y-4 font-mono text-xs">
               <div>
@@ -319,15 +328,15 @@ export const AssetsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">SCAN METHODOLOGY</label>
+                <label className="block text-slate-400 mb-1">SCAN METHODOLOGY (TEMPLATE ENGINE)</label>
                 <select
                   value={scanType}
                   onChange={(e) => setScanType(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="full">Comprehensive Nmap SYN + Version Fingerprinting</option>
-                  <option value="cctv_iot">Dedicated CCTV / RTSP / ONVIF Deep Probing</option>
-                  <option value="quick">Quick Discovery (Top 100 Common Ports)</option>
+                  <option value="full">Comprehensive Nmap SYN + Version Fingerprinting (Simulated)</option>
+                  <option value="cctv_iot">Dedicated CCTV / RTSP / ONVIF Deep Probing (Simulated)</option>
+                  <option value="quick">Quick Discovery (Top 100 Common Ports - Simulated)</option>
                 </select>
               </div>
 
@@ -336,7 +345,7 @@ export const AssetsPage: React.FC = () => {
                   type="submit"
                   className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold tracking-wider transition-all shadow-lg shadow-cyan-500/20"
                 >
-                  START DISCOVERY
+                  START SIMULATED DISCOVERY
                 </button>
               </div>
             </form>
@@ -371,7 +380,12 @@ export const AssetsPage: React.FC = () => {
 
             {selectedAsset.is_cctv && selectedAsset.cctv_stream_protocol && (
               <div className="mt-4 p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center justify-between">
-                <span>RTSP VIDEO PROTOCOL: {selectedAsset.cctv_stream_protocol}</span>
+                <div className="flex items-center gap-2">
+                  <span>RTSP VIDEO PROTOCOL: {selectedAsset.cctv_stream_protocol}</span>
+                  <span className="text-[9px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
+                    SIMULATED ENDPOINT
+                  </span>
+                </div>
                 <span className="text-amber-400">Firmware: {selectedAsset.firmware_version || 'v1.0'}</span>
               </div>
             )}

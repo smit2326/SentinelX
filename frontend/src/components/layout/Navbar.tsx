@@ -33,6 +33,9 @@ export const Navbar: React.FC = () => {
                 <span className="rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/30">
                   PHASE 1
                 </span>
+                <span className="hidden sm:inline-block rounded bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/40 font-mono">
+                  SIMULATION MODE
+                </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono">UNIFIED SECURITY PLATFORM</p>
             </div>
@@ -41,10 +44,10 @@ export const Navbar: React.FC = () => {
           <div className="h-6 w-px bg-slate-800 ml-2" />
 
           {/* WebSocket Status Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono" title="Phase-1 WebSocket streaming synthetic SOC telemetry and incident events">
             <Radio className={`h-3.5 w-3.5 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-amber-500'}`} />
             <span className={isConnected ? 'text-emerald-400' : 'text-amber-500'}>
-              {isConnected ? 'TELEMETRY LIVE' : 'CONNECTING...'}
+              {isConnected ? 'WS: SIMULATED SOC FEED' : 'CONNECTING...'}
             </span>
           </div>
 
@@ -52,7 +55,7 @@ export const Navbar: React.FC = () => {
           {scanProgress && (
             <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-cyan-950/60 border border-cyan-500/40 text-xs font-mono text-cyan-300 animate-pulse">
               <RefreshCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-              <span>NMAP SCAN: {scanProgress.progress}% [{scanProgress.status}]</span>
+              <span>SIMULATED SCAN: {scanProgress.progress}% [{scanProgress.status}]</span>
             </div>
           )}
         </div>
