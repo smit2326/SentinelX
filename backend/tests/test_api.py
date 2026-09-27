@@ -1,14 +1,18 @@
+import asyncio
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.db.seed_data import init_and_seed_db
-from app.models.asset import Asset
-from app.core.database import AsyncSessionLocal
+
+_db_initialized = False
 
 @pytest_asyncio.fixture(autouse=True)
 async def prepare_db():
-    await init_and_seed_db()
+    global _db_initialized
+    if not _db_initialized:
+        await init_and_seed_db()
+        _db_initialized = True
 
 @pytest.mark.asyncio
 async def test_health_check():

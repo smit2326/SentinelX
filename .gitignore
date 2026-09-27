@@ -19,7 +19,13 @@ __pycache__/
 htmlcov/
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
 backend/sentinel_x.db
+backend/sentinel_x.db-shm
+backend/sentinel_x.db-wal
+backend/storage/pcaps/*.pcap
+!backend/storage/pcaps/.gitkeep
 
 # Virtual Environments
 venv/
