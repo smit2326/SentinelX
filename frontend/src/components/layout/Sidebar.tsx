@@ -40,6 +40,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
       visible: true
     },
     {
+      id: 'analytics',
+      label: 'Security Analytics & ML',
+      icon: <Cpu className="h-4 w-4" />,
+      badge: 'PHASE 3',
+      badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+      visible: true
+    },
+    {
       id: 'assets',
       label: 'Asset Discovery & IoT',
       icon: <Server className="h-4 w-4" />,

@@ -11,6 +11,15 @@ from app.models.network import (
     CorrelatedFinding,
     CaptureStatus
 )
+from app.models.analytics import (
+    FeatureSet,
+    BehavioralBaseline,
+    RiskAssessment,
+    ModelVersion,
+    MLPrediction,
+    EvaluationResult,
+    DatasetRecord
+)
 
 __all__ = [
     "User",
@@ -29,4 +38,11 @@ __all__ = [
     "NetworkConnection",
     "CorrelatedFinding",
     "CaptureStatus",
+    "FeatureSet",
+    "BehavioralBaseline",
+    "RiskAssessment",
+    "ModelVersion",
+    "MLPrediction",
+    "EvaluationResult",
+    "DatasetRecord",
 ]

@@ -356,3 +356,103 @@ export interface DeviceCorrelation {
   };
 }
 
+// ----------------------------------------------------
+// Phase 3: Security Analytics & ML Governance Types
+// ----------------------------------------------------
+
+export interface RiskScoreBreakdown {
+  asset_id: number;
+  ip_address: string;
+  hostname?: string;
+  device_type?: string;
+  vulnerability_score: number;
+  exposure_score: number;
+  criticality_score: number;
+  behavioral_score: number;
+  total_score: number;
+  risk_band: 'Low' | 'Moderate' | 'High' | 'Critical';
+  formula_explanation: string;
+  factors: string[];
+  calculated_at?: string;
+}
+
+export interface RiskChangeRecord {
+  asset_id: number;
+  ip_address: string;
+  hostname?: string;
+  previous_score: number;
+  current_score: number;
+  change_delta: number;
+  reason: string;
+  timestamp: string;
+}
+
+export interface BehavioralSignalItem {
+  id: string;
+  asset_id: number;
+  ip_address: string;
+  hostname?: string;
+  signal_name: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  evidence: string;
+  recommended_investigation: string;
+  timestamp: string;
+  status: string;
+}
+
+export interface RiskOverviewResponse {
+  summary: {
+    critical: number;
+    high: number;
+    moderate: number;
+    low: number;
+    total_evaluated: number;
+  };
+  recent_changes: RiskChangeRecord[];
+  behavioral_signals: BehavioralSignalItem[];
+}
+
+export interface MLPredictionItem {
+  id: number;
+  asset_id?: number;
+  hostname?: string;
+  ip_address?: string;
+  model_name: string;
+  model_version: string;
+  inference: string;
+  confidence: number;
+  anomaly_score?: number;
+  feature_contributions?: Record<string, number>;
+  plain_explanation: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ModelVersionItem {
+  id: number;
+  model_name: string;
+  model_version: string;
+  algorithm: string;
+  training_date: string;
+  features_used: string[];
+  hyperparameters: Record<string, any>;
+  is_active: boolean;
+  dataset_size: number;
+}
+
+export interface EvaluationResultItem {
+  id: number;
+  model_name: string;
+  model_version: string;
+  evaluation_date: string;
+  dataset_split: string;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  roc_auc: number;
+  confusion_matrix?: Record<string, any>;
+  false_positive_rate?: number;
+}
+
+

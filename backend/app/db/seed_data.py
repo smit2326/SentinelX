@@ -16,6 +16,15 @@ from app.models.network import (
     NetworkConnection,
     CorrelatedFinding
 )
+from app.models.analytics import (
+    FeatureSet,
+    BehavioralBaseline,
+    RiskAssessment,
+    ModelVersion,
+    MLPrediction,
+    EvaluationResult,
+    DatasetRecord
+)
 from app.core.logger import logger
 
 async def clear_demo_data(db: AsyncSession):
