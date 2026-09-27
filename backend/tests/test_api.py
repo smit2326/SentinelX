@@ -231,3 +231,99 @@ async def test_openvas_integration():
             for a in assets_res.json():
                 if a["ip_address"] in test_ips:
                     await client.delete(f"/api/v1/assets/{a['id']}", headers=headers)
+
+@pytest.mark.asyncio
+async def test_data_cleaning_pipeline():
+    """Validates the 7 core components of the Phase 3 Data Cleaning Pipeline."""
+    from app.services.data_cleaning_pipeline import DataCleaningPipeline
+
+    # A. Remove duplicates test
+    raw_records = [
+        {"ip": "10.0.0.1", "port": 80, "val": "first"},
+        {"ip": "10.0.0.1", "port": 80, "val": "duplicate"},
+        {"ip": "10.0.0.2", "port": 443, "val": "unique"}
+    ]
+    deduped, removed = DataCleaningPipeline.deduplicate_records(raw_records, ["ip", "port"])
+    assert len(deduped) == 2
+    assert removed == 1
+
+    # B. Normalize Operating Systems
+    win_norm = DataCleaningPipeline.normalize_os("Microsoft Windows 11 Home 26100")
+    assert win_norm["os_family"] == "Windows"
+    assert win_norm["os_version"] == "11"
+    assert win_norm["os_build"] == "26100"
+
+    linux_norm = DataCleaningPipeline.normalize_os("Ubuntu 22.04.3 LTS")
+    assert linux_norm["os_family"] == "Linux"
+
+    cctv_norm = DataCleaningPipeline.normalize_os("Hikvision Embedded Camera")
+    assert cctv_norm["os_family"] == "Embedded IoT"
+
+    # C. Normalize Software Versions
+    ssh_norm = DataCleaningPipeline.normalize_software_version("OpenSSH_8.9p1 Ubuntu-3ubuntu0.6")
+    assert ssh_norm["product"] == "Openssh"
+    assert ssh_norm["version"] == "8.9p1"
+    assert ssh_norm["major"] == 8
+
+    # D. Handle Missing Values without synthetic hallucination
+    missing_handled = DataCleaningPipeline.handle_missing_values({
+        "ip_address": "127.0.0.1",
+        "hostname": None,
+        "mac_address": "bc:ba:e1:12:34:56", # Hikvision OUI
+        "open_ports": [{"port": 554, "service": "rtsp"}],
+        "device_type": None
+    })
+    assert missing_handled["vendor"] == "Hikvision Digital Technology"
+    assert missing_handled["device_type"] == "CCTV Camera"
+    assert missing_handled["hostname"] is None  # Not blindly hallucinated
+
+    # E. Validate IP Addresses
+    assert DataCleaningPipeline.validate_ip("192.168.1.1")["is_valid"] is True
+    assert DataCleaningPipeline.validate_ip("192.168.1.1")["is_private"] is True
+    assert DataCleaningPipeline.validate_ip("999.999.999.999")["is_valid"] is False
+    assert DataCleaningPipeline.validate_ip("invalid-host")["is_valid"] is False
+
+    # F. Validate Ports
+    assert DataCleaningPipeline.validate_port(443)["is_valid"] is True
+    assert DataCleaningPipeline.validate_port(443)["port_class"] == "Well-Known"
+    assert DataCleaningPipeline.validate_port(8080)["port_class"] == "Registered"
+    assert DataCleaningPipeline.validate_port(0)["is_valid"] is False
+    assert DataCleaningPipeline.validate_port(70000)["is_valid"] is False
+
+    # G. Normalize Timestamps
+    epoch_ts = DataCleaningPipeline.normalize_timestamp(1727438400)
+    assert epoch_ts is not None
+    assert epoch_ts.tzinfo is not None
+
+    iso_ts = DataCleaningPipeline.normalize_timestamp("2026-09-27T12:00:00Z")
+    assert iso_ts is not None
+
+    # Test API Endpoints
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@sentinel-x.sec", "password": "SentinelAdmin2026!"}
+        )
+        token = login.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Status
+        status_res = await client.get("/api/v1/cleaning/status", headers=headers)
+        assert status_res.status_code == 200
+        assert "pipeline_steps" in status_res.json()
+
+        # Validation endpoints
+        ip_res = await client.post("/api/v1/cleaning/validate-ip", headers=headers, json={"ip": "10.0.0.1"})
+        assert ip_res.status_code == 200
+        assert ip_res.json()["is_private"] is True
+
+        port_res = await client.post("/api/v1/cleaning/validate-port", headers=headers, json={"port": 445})
+        assert port_res.status_code == 200
+        assert port_res.json()["standard_service"] == "SMBv3"
+
+        # Execute pipeline on database
+        run_res = await client.post("/api/v1/cleaning/run", headers=headers)
+        assert run_res.status_code == 200
+        assert run_res.json()["success"] is True
+        assert "cleaning_report" in run_res.json()

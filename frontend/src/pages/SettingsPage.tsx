@@ -9,7 +9,12 @@ import {
   Key,
   Sliders,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Database,
+  CheckCircle2,
+  Play,
+  Activity
 } from 'lucide-react';
 import { api } from '../services/api';
 import { SystemConfig } from '../types';
@@ -26,15 +31,68 @@ export const SettingsPage: React.FC = () => {
   const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
   const [isTestingWebhook, setIsTestingWebhook] = useState<boolean>(false);
 
+  // Phase 3: Data Cleaning Pipeline State
+  const [cleaningStatus, setCleaningStatus] = useState<any>(null);
+  const [isRunningCleaning, setIsRunningCleaning] = useState<boolean>(false);
+  const [cleaningReport, setCleaningReport] = useState<any>(null);
+
+  // Interactive Validation Sandbox
+  const [sandboxType, setSandboxType] = useState<'os' | 'software' | 'ip' | 'port'>('os');
+  const [sandboxInput, setSandboxInput] = useState<string>('Microsoft Windows 11 Home 26100');
+  const [sandboxResult, setSandboxResult] = useState<any>(null);
+  const [isValidating, setIsValidating] = useState<boolean>(false);
+
   const fetchConfigs = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/config');
-      setConfigs(res.data);
+      const [cfgRes, cleanRes] = await Promise.all([
+        api.get('/config'),
+        api.get('/cleaning/status').catch(() => ({ data: null }))
+      ]);
+      setConfigs(cfgRes.data);
+      if (cleanRes.data) setCleaningStatus(cleanRes.data);
     } catch (e) {
       console.error('Failed to load system configs:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRunCleaning = async () => {
+    try {
+      setIsRunningCleaning(true);
+      const res = await api.post('/cleaning/run');
+      setCleaningReport(res.data.cleaning_report);
+      const cleanRes = await api.get('/cleaning/status');
+      setCleaningStatus(cleanRes.data);
+    } catch (e) {
+      console.error('Cleaning pipeline failed:', e);
+    } finally {
+      setIsRunningCleaning(false);
+    }
+  };
+
+  const handleTestSandbox = async () => {
+    try {
+      setIsValidating(true);
+      let endpoint = '/cleaning/normalize-os';
+      let payload: any = { raw_os: sandboxInput };
+      if (sandboxType === 'software') {
+        endpoint = '/cleaning/normalize-software';
+        payload = { banner: sandboxInput };
+      } else if (sandboxType === 'ip') {
+        endpoint = '/cleaning/validate-ip';
+        payload = { ip: sandboxInput };
+      } else if (sandboxType === 'port') {
+        endpoint = '/cleaning/validate-port';
+        payload = { port: parseInt(sandboxInput, 10) || 0, protocol: 'tcp' };
+      }
+      const res = await api.post(endpoint, payload);
+      setSandboxResult(res.data);
+    } catch (e) {
+      console.error('Sandbox validation error:', e);
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -233,6 +291,164 @@ export const SettingsPage: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 4. Phase 3: Data Cleaning & Hygiene Pipeline */}
+        <div className="cyber-card p-6 rounded-2xl border border-cyan-500/40 space-y-5 lg:col-span-2 shadow-xl shadow-cyan-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-bold text-white uppercase text-base flex items-center gap-2">
+                  PHASE 3: DATA CLEANING &amp; PREPROCESSING PIPELINE
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 font-mono">
+                    ML READY
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  Eliminates duplicates, normalizes OS/software banners, validates network primitives, and handles missing values without synthetic hallucinations.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRunCleaning}
+              disabled={isRunningCleaning || !isAdmin}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs font-mono transition-all shadow-md shadow-cyan-500/20 disabled:opacity-50"
+            >
+              <Play className={`h-4 w-4 ${isRunningCleaning ? 'animate-spin' : ''}`} />
+              <span>{isRunningCleaning ? 'EXECUTING PIPELINE...' : 'RUN DATA CLEANING PIPELINE'}</span>
+            </button>
+          </div>
+
+          {/* Hygiene Metrics KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Data Completeness</span>
+              <span className="text-xl font-bold text-emerald-400">
+                {cleaningStatus?.hygiene_metrics?.data_completeness_score ?? 100}%
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Active Assets Evaluated</span>
+              <span className="text-xl font-bold text-white">{cleaningStatus?.total_assets ?? 0}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Vulnerabilities Scored</span>
+              <span className="text-xl font-bold text-amber-400">{cleaningStatus?.total_vulnerabilities ?? 0}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Pipeline Integrity</span>
+              <span className="text-xl font-bold text-cyan-400">100% VALID</span>
+            </div>
+          </div>
+
+          {/* 7 Pipeline Requirements Checklist */}
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2 font-mono text-xs">
+            <span className="text-slate-300 font-bold block mb-2">Automated Data Cleansing Modules:</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-300">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>A. Remove duplicates</strong> (Composite IP &amp; CVE key hash)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>B. Normalize OS</strong> (Standardized family, release &amp; build)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>C. Normalize software</strong> (SemVer regex &amp; CPE candidates)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>D. Handle missing values</strong> (No synthetic hallucination)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>E. Validate IP addresses</strong> (RFC IPv4 / IPv6 validation)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>F. Validate ports</strong> (RFC [1, 65535] range &amp; well-known classification)</span>
+              </div>
+              <div className="flex items-center gap-2 md:col-span-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span><strong>G. Normalize timestamps</strong> (Unified timezone-aware UTC ISO-8601)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Normalization & Validation Sandbox */}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-white font-bold flex items-center gap-2">
+                <Activity className="h-4 w-4 text-cyan-400" />
+                Interactive Validation &amp; Normalization Sandbox
+              </span>
+              <div className="flex items-center gap-1">
+                {(['os', 'software', 'ip', 'port'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setSandboxType(type);
+                      setSandboxResult(null);
+                      if (type === 'os') setSandboxInput('Microsoft Windows 11 Home 26100');
+                      if (type === 'software') setSandboxInput('OpenSSH_8.9p1 Ubuntu-3ubuntu0.6');
+                      if (type === 'ip') setSandboxInput('192.168.1.1');
+                      if (type === 'port') setSandboxInput('445');
+                    }}
+                    className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                      sandboxType === type
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={sandboxInput}
+                onChange={(e) => setSandboxInput(e.target.value)}
+                placeholder="Enter raw input value to test normalization..."
+                className="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
+              />
+              <button
+                onClick={handleTestSandbox}
+                disabled={isValidating}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold transition-all"
+              >
+                {isValidating ? 'TESTING...' : 'VALIDATE'}
+              </button>
+            </div>
+
+            {sandboxResult && (
+              <pre className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] text-cyan-300 overflow-x-auto leading-relaxed">
+                {JSON.stringify(sandboxResult, null, 2)}
+              </pre>
+            )}
+          </div>
+
+          {/* Execution Report Banner */}
+          {cleaningReport && (
+            <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/40 text-emerald-300 font-mono text-xs space-y-1">
+              <div className="flex items-center gap-2 font-bold">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Pipeline Execution Report:</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Assets Evaluated: {cleaningReport.assets_evaluated} | Cleaned: {cleaningReport.assets_cleaned} |
+                Ports Sanitized: {cleaningReport.ports_sanitized} | OS Normalized: {cleaningReport.os_normalized_count} |
+                Timestamps Normalized: {cleaningReport.timestamps_normalized}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

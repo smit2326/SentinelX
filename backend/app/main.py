@@ -18,6 +18,7 @@ from app.api.v1.reports import router as reports_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.network import router as network_router
 from app.api.v1.openvas import router as openvas_router
+from app.api.v1.cleaning import router as cleaning_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,6 +61,7 @@ app.include_router(reports_router, prefix=settings.API_V1_STR)
 app.include_router(telemetry_router, prefix=settings.API_V1_STR)
 app.include_router(network_router, prefix=settings.API_V1_STR)
 app.include_router(openvas_router, prefix=settings.API_V1_STR)
+app.include_router(cleaning_router, prefix=settings.API_V1_STR)
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():
