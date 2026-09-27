@@ -17,6 +17,7 @@ from app.core.logger import logger
 from app.models.asset import Asset
 from app.models.vulnerability import Vulnerability
 from app.models.network import NetworkConnection, NetworkPacketEvent
+from app.services.data_quality_layer import DataQualityLayer
 
 # ---------------------------------------------------------------------------
 # OS Normalization Signatures
@@ -557,7 +558,31 @@ class DataCleaningPipeline:
                     asset.last_scanned = norm_dt
                     report["timestamps_normalized"] += 1
 
+            # Phase 3 Component 3: Data Quality & Lineage Passport
+            # "Don't just clean the data and throw bad records away."
+            raw_record = {
+                "ip_address": asset.ip_address,
+                "hostname": asset.hostname,
+                "os_name": asset.os_name,
+                "os_build": asset.os_build,
+                "vendor": asset.vendor,
+                "mac_address": asset.mac_address,
+                "open_ports": asset.open_ports,
+                "collection_time": asset.last_scanned
+            }
+            passport = DataQualityLayer.assess_record_quality(
+                raw_record,
+                source=asset.data_source or "Windows Collector"
+            )
+            asset.os_build = passport["os_build"]
+            asset.data_source = passport["source"]
+            asset.confidence = passport["confidence"]
+            asset.data_quality = passport["data_quality"]
+            asset.quality_metadata = passport
+            asset.collection_time = asset.last_scanned
+
             report["assets_cleaned"] += 1
+            report["quality_passports_generated"] = report.get("quality_passports_generated", 0) + 1
 
         # Delete duplicate assets if any
         if duplicate_asset_ids:

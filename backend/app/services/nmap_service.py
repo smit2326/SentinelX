@@ -16,6 +16,7 @@ from app.models.alert import Alert
 from app.services.risk_engine import calculate_asset_risk
 from app.services.websocket_manager import ws_manager
 from app.services.audit_service import log_audit_event
+from app.services.data_quality_layer import DataQualityLayer
 from app.core.logger import logger
 
 KNOWN_NMAP_PATHS = [
@@ -343,14 +344,38 @@ async def execute_laptop_nmap_vuln_audit(
 
     services = [{"name": p["service"], "version": p["version"]} for p in open_ports]
 
+    # Determine normalized OS and build
+    os_name = host_details["os_product"]
+    os_build_str = str(host_details.get("os_build", "Unknown"))
+    if "Windows" in os_name:
+        try:
+            if int(os_build_str) >= 22000:
+                os_name = "Windows 11"
+        except (ValueError, TypeError):
+            pass
+
+    source = "Windows Collector" if target in ["127.0.0.1", "localhost", ""] else "Nmap Scanner"
+    passport = DataQualityLayer.assess_record_quality(
+        {
+            "ip_address": target,
+            "hostname": f"{host_details['hostname']} (Local Laptop)",
+            "os_name": os_name,
+            "os_build": os_build_str,
+            "vendor": "Microsoft / Host PC",
+            "open_ports": open_ports,
+            "collection_time": datetime.now(timezone.utc)
+        },
+        source=source
+    )
+
     if not asset:
         asset = Asset(
             ip_address=target,
             hostname=f"{host_details['hostname']} (Local Laptop)",
             device_type="Workstation / Host Laptop",
             vendor="Microsoft / Host PC",
-            os_name=host_details["os_product"],
-            os_version=f"Build {host_details['os_build']}",
+            os_name=os_name,
+            os_version=f"Build {os_build_str}",
             open_ports=open_ports,
             services=services,
             is_iot=False,
@@ -358,18 +383,30 @@ async def execute_laptop_nmap_vuln_audit(
             location="Local Workstation",
             subnet=f"{target}/32",
             status="Online",
-            last_scanned=datetime.now(timezone.utc)
+            last_scanned=datetime.now(timezone.utc),
+            os_build=os_build_str,
+            data_source=source,
+            confidence=passport["confidence"],
+            collection_time=datetime.now(timezone.utc),
+            data_quality=passport["data_quality"],
+            quality_metadata=passport
         )
         db.add(asset)
         await db.flush()
     else:
         asset.hostname = f"{host_details['hostname']} (Local Laptop)"
         asset.device_type = "Workstation / Host Laptop"
-        asset.os_name = host_details["os_product"]
-        asset.os_version = f"Build {host_details['os_build']}"
+        asset.os_name = os_name
+        asset.os_version = f"Build {os_build_str}"
         asset.open_ports = open_ports
         asset.services = services
         asset.last_scanned = datetime.now(timezone.utc)
+        asset.os_build = os_build_str
+        asset.data_source = source
+        asset.confidence = passport["confidence"]
+        asset.collection_time = datetime.now(timezone.utc)
+        asset.data_quality = passport["data_quality"]
+        asset.quality_metadata = passport
 
     # Commit vulnerabilities for this asset
     # First, purge old vulns for this asset to avoid duplicates on re-scan

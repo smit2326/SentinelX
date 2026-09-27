@@ -17,6 +17,7 @@ from app.models.vulnerability import Vulnerability
 from app.services.auth_service import require_any_authenticated, require_analyst_or_admin
 from app.services.audit_service import log_audit_event
 from app.services.data_cleaning_pipeline import DataCleaningPipeline
+from app.services.data_quality_layer import DataQualityLayer
 
 router = APIRouter(prefix="/cleaning", tags=["Phase 3 — Data Cleaning & Hygiene Pipeline"])
 
@@ -150,3 +151,68 @@ async def normalize_software_endpoint(
 ):
     """Normalizes raw software banner strings into structured product names and semantic versions."""
     return DataCleaningPipeline.normalize_software_version(payload.banner)
+
+
+class QualityEvaluationPayload(BaseModel):
+    """Schema for arbitrary telemetry record quality assessment."""
+    ip_address: Optional[str] = Field(None, description="IP address of endpoint")
+    hostname: Optional[str] = Field(None, description="Host identifier")
+    os_name: Optional[str] = Field(None, description="Operating system name")
+    os_build: Optional[str] = Field(None, description="OS build number")
+    vendor: Optional[str] = Field(None, description="Hardware or vendor name")
+    mac_address: Optional[str] = Field(None, description="Physical hardware MAC")
+    source: str = Field("Windows Collector", description="Data collection source")
+
+
+@router.get("/quality/summary", response_model=Dict[str, Any])
+async def get_quality_summary_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_any_authenticated)
+):
+    """
+    Returns platform-wide Data Quality Layer metrics:
+    Tier distribution (Complete, Partial, Inferred, Degraded), confidence breakdown,
+    source distribution, and completeness scores.
+    """
+    return await DataQualityLayer.get_quality_summary(db)
+
+
+@router.post("/quality/audit", response_model=Dict[str, Any])
+async def run_quality_audit_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_analyst_or_admin)
+):
+    """
+    Executes a database-wide Data Quality Layer audit.
+    Evaluates every asset, stamps quality passports, and retains records with transparent lineage.
+    Philosophy: 'Don't just clean the data and throw bad records away.'
+    """
+    report = await DataQualityLayer.audit_database_assets(db)
+
+    await log_audit_event(
+        db=db,
+        action="DATA_QUALITY_AUDIT_EXECUTED",
+        resource="data_quality_layer",
+        actor_email=current_user.email,
+        details=report
+    )
+
+    return {
+        "success": True,
+        "message": "Data Quality Layer audit completed across asset inventory.",
+        "audit_report": report
+    }
+
+
+@router.post("/quality/evaluate", response_model=Dict[str, Any])
+async def evaluate_record_quality_endpoint(
+    payload: QualityEvaluationPayload,
+    _user: User = Depends(require_any_authenticated)
+):
+    """
+    Interactive test endpoint for Phase 3 Data Quality Layer.
+    Evaluates an arbitrary record dictionary and returns its Data Quality Passport.
+    """
+    record_dict = payload.model_dump()
+    source = record_dict.pop("source", "Windows Collector")
+    return DataQualityLayer.assess_record_quality(record_dict, source=source)

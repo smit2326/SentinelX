@@ -44,6 +44,9 @@ async def login(
             detail="User account is deactivated"
         )
     
+    user_id = user.id
+    user_role = user.role
+
     # Update last login
     user.last_login = datetime.now(timezone.utc)
     try:
@@ -52,7 +55,7 @@ async def login(
         await db.rollback()
     
     # Create token
-    access_token = create_access_token(subject=user.id, role=user.role)
+    access_token = create_access_token(subject=user_id, role=user_role)
     
     await log_audit_event(
         db=db,

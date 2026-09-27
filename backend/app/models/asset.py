@@ -35,5 +35,13 @@ class Asset(Base):
     last_scanned = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    # Phase 3: Data Quality & Lineage Layer
+    os_build = Column(String(50), nullable=True) # e.g. "26100"
+    data_source = Column(String(100), default="Windows Collector") # "Windows Collector", "Nmap Scanner", "OpenVAS"
+    confidence = Column(String(50), default="High") # "High", "Medium", "Low"
+    collection_time = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    data_quality = Column(String(50), default="Complete") # "Complete", "Partial", "Inferred", "Degraded"
+    quality_metadata = Column(JSON, default=dict) # Completeness ratio, lineage, missing/inferred fields
+
     def __repr__(self):
-        return f"<Asset {self.ip_address} ({self.hostname or self.device_type}) - Risk {self.risk_score}>"
+        return f"<Asset {self.ip_address} ({self.hostname or self.device_type}) - Quality {self.data_quality}>"

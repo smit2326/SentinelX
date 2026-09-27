@@ -33,6 +33,13 @@ class AssetBase(BaseModel):
     is_quarantined: bool = False
     location: str = "HQ Datacenter"
     subnet: str = "192.168.1.0/24"
+    # Phase 3: Data Quality & Lineage Layer
+    os_build: Optional[str] = None
+    data_source: str = "Windows Collector"
+    confidence: str = "High"
+    collection_time: Optional[datetime] = None
+    data_quality: str = "Complete"
+    quality_metadata: Dict[str, Any] = {}
 
 class AssetCreate(AssetBase):
     pass
@@ -54,6 +61,12 @@ class AssetUpdate(BaseModel):
     is_quarantined: Optional[bool] = None
     location: Optional[str] = None
     subnet: Optional[str] = None
+    os_build: Optional[str] = None
+    data_source: Optional[str] = None
+    confidence: Optional[str] = None
+    collection_time: Optional[datetime] = None
+    data_quality: Optional[str] = None
+    quality_metadata: Optional[Dict[str, Any]] = None
 
 class AssetOut(AssetBase):
     id: int

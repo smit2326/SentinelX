@@ -36,6 +36,11 @@ export const SettingsPage: React.FC = () => {
   const [isRunningCleaning, setIsRunningCleaning] = useState<boolean>(false);
   const [cleaningReport, setCleaningReport] = useState<any>(null);
 
+  // Phase 3: Data Quality Layer State
+  const [qualitySummary, setQualitySummary] = useState<any>(null);
+  const [isRunningQualityAudit, setIsRunningQualityAudit] = useState<boolean>(false);
+  const [qualityAuditReport, setQualityAuditReport] = useState<any>(null);
+
   // Interactive Validation Sandbox
   const [sandboxType, setSandboxType] = useState<'os' | 'software' | 'ip' | 'port'>('os');
   const [sandboxInput, setSandboxInput] = useState<string>('Microsoft Windows 11 Home 26100');
@@ -45,12 +50,14 @@ export const SettingsPage: React.FC = () => {
   const fetchConfigs = async () => {
     try {
       setIsLoading(true);
-      const [cfgRes, cleanRes] = await Promise.all([
+      const [cfgRes, cleanRes, qualRes] = await Promise.all([
         api.get('/config'),
-        api.get('/cleaning/status').catch(() => ({ data: null }))
+        api.get('/cleaning/status').catch(() => ({ data: null })),
+        api.get('/cleaning/quality/summary').catch(() => ({ data: null }))
       ]);
       setConfigs(cfgRes.data);
       if (cleanRes.data) setCleaningStatus(cleanRes.data);
+      if (qualRes.data) setQualitySummary(qualRes.data);
     } catch (e) {
       console.error('Failed to load system configs:', e);
     } finally {
@@ -63,12 +70,30 @@ export const SettingsPage: React.FC = () => {
       setIsRunningCleaning(true);
       const res = await api.post('/cleaning/run');
       setCleaningReport(res.data.cleaning_report);
-      const cleanRes = await api.get('/cleaning/status');
+      const [cleanRes, qualRes] = await Promise.all([
+        api.get('/cleaning/status'),
+        api.get('/cleaning/quality/summary')
+      ]);
       setCleaningStatus(cleanRes.data);
+      setQualitySummary(qualRes.data);
     } catch (e) {
       console.error('Cleaning pipeline failed:', e);
     } finally {
       setIsRunningCleaning(false);
+    }
+  };
+
+  const handleRunQualityAudit = async () => {
+    try {
+      setIsRunningQualityAudit(true);
+      const res = await api.post('/cleaning/quality/audit');
+      setQualityAuditReport(res.data.audit_report);
+      const qualRes = await api.get('/cleaning/quality/summary');
+      setQualitySummary(qualRes.data);
+    } catch (e) {
+      console.error('Quality audit failed:', e);
+    } finally {
+      setIsRunningQualityAudit(false);
     }
   };
 
@@ -446,6 +471,145 @@ export const SettingsPage: React.FC = () => {
                 Assets Evaluated: {cleaningReport.assets_evaluated} | Cleaned: {cleaningReport.assets_cleaned} |
                 Ports Sanitized: {cleaningReport.ports_sanitized} | OS Normalized: {cleaningReport.os_normalized_count} |
                 Timestamps Normalized: {cleaningReport.timestamps_normalized}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Phase 3: Component 3 — Data Quality Layer & Provenance Passport */}
+        <div className="cyber-card p-6 rounded-2xl border border-cyan-500/40 space-y-5 lg:col-span-2 shadow-xl shadow-cyan-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-bold text-white uppercase text-base flex items-center gap-2">
+                  PHASE 3: COMPONENT 3 — DATA QUALITY &amp; LINEAGE LAYER
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 font-mono">
+                    ZERO DATA LOSS POLICY
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400 font-mono mt-0.5 italic">
+                  "Don't just clean the data and throw bad records away. Retain lineage, confidence, and completeness."
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRunQualityAudit}
+              disabled={isRunningQualityAudit || !isAdmin}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-slate-950 font-bold text-xs font-mono transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRunningQualityAudit ? 'animate-spin' : ''}`} />
+              <span>{isRunningQualityAudit ? 'AUDITING QUALITY...' : 'RUN DATA QUALITY AUDIT'}</span>
+            </button>
+          </div>
+
+          {/* Quality Distribution KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-xs">
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Complete Records</span>
+              <span className="text-xl font-bold text-emerald-400">
+                {qualitySummary?.quality_distribution?.Complete ?? 0}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Partial Records</span>
+              <span className="text-xl font-bold text-amber-400">
+                {qualitySummary?.quality_distribution?.Partial ?? 0}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Inferred Records</span>
+              <span className="text-xl font-bold text-cyan-400">
+                {qualitySummary?.quality_distribution?.Inferred ?? 0}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Degraded Records</span>
+              <span className="text-xl font-bold text-slate-400">
+                {qualitySummary?.quality_distribution?.Degraded ?? 0}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-center">
+              <span className="text-[10px] text-slate-400 uppercase block">Avg Completeness</span>
+              <span className="text-xl font-bold text-white">
+                {qualitySummary?.average_completeness ?? 100}%
+              </span>
+            </div>
+          </div>
+
+          {/* Canonical Data Quality Specification Table */}
+          <div className="space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-300 font-bold">Standard Data Quality Passport (Host Telemetry Example):</span>
+              <span className="text-[10px] text-slate-400">Real-time Telemetry Verification</span>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-950/80 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-4">Field</th>
+                    <th className="py-2.5 px-4">Value</th>
+                    <th className="py-2.5 px-4">Description / Provenance Rule</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">OS</td>
+                    <td className="py-2.5 px-4 text-cyan-300 font-bold">Windows 11</td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">Normalized OS family and desktop release</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">OS Build</td>
+                    <td className="py-2.5 px-4 text-white font-mono">26100</td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">Direct Windows kernel build number (24H2 release)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">Source</td>
+                    <td className="py-2.5 px-4 text-emerald-400 font-medium">Windows Collector</td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">Authoritative local host collector (PowerShell/WMI)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">Confidence</td>
+                    <td className="py-2.5 px-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        High
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">Primary host authenticated telemetry</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">Collection Time</td>
+                    <td className="py-2.5 px-4 text-slate-300 font-mono">2026-09-27</td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">Canonical snapshot date normalized to UTC</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-4 font-bold text-slate-300">Data Quality</td>
+                    <td className="py-2.5 px-4">
+                      <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                        Complete
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 text-slate-400 text-[11px]">All required primary fields verified without missing values</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Audit Execution Report Banner */}
+          {qualityAuditReport && (
+            <div className="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/40 text-cyan-300 font-mono text-xs space-y-1">
+              <div className="flex items-center gap-2 font-bold">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <span>Data Quality Layer Audit Completed:</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Total Assets: {qualityAuditReport.total_assets_audited} | Avg Completeness: {qualityAuditReport.average_completeness}% |
+                Complete: {qualityAuditReport.quality_distribution?.Complete ?? 0} | Partial: {qualityAuditReport.quality_distribution?.Partial ?? 0}
               </p>
             </div>
           )}

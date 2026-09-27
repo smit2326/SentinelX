@@ -47,6 +47,25 @@ export interface Asset {
   subnet: string;
   last_scanned: string;
   created_at: string;
+  // Phase 3: Data Quality & Lineage Layer
+  os_build?: string;
+  data_source?: string;
+  confidence?: 'High' | 'Medium' | 'Low' | string;
+  collection_time?: string;
+  data_quality?: 'Complete' | 'Partial' | 'Inferred' | 'Degraded' | string;
+  quality_metadata?: {
+    os?: string;
+    os_build?: string;
+    source?: string;
+    confidence?: string;
+    collection_time?: string;
+    data_quality?: string;
+    completeness_score?: number;
+    present_fields?: string[];
+    missing_fields?: string[];
+    inferred_fields?: string[];
+    lineage_summary?: string;
+  };
 }
 
 export interface Vulnerability {

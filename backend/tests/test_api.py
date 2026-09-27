@@ -327,3 +327,87 @@ async def test_data_cleaning_pipeline():
         assert run_res.status_code == 200
         assert run_res.json()["success"] is True
         assert "cleaning_report" in run_res.json()
+
+@pytest.mark.asyncio
+async def test_data_quality_layer():
+    """
+    Validates Phase 3 Component 3: Data Quality Layer.
+    Verifies lineage passports, source credibility, confidence scoring,
+    and non-destructive retention ('Don't just clean the data and throw bad records away').
+    """
+    from app.services.data_quality_layer import DataQualityLayer
+
+    # 1. Complete Record Assessment (Exact User Specification)
+    sample_complete = {
+        "ip_address": "127.0.0.1",
+        "hostname": "PAVILION_23",
+        "os_name": "Windows 11",
+        "os_build": "26100",
+        "vendor": "HP / Microsoft",
+        "mac_address": "00:15:5d:01:02:03",
+        "open_ports": [{"port": 445, "service": "smb"}],
+        "collection_time": "2026-09-27"
+    }
+    passport = DataQualityLayer.assess_record_quality(sample_complete, source="Windows Collector")
+    assert passport["os"] == "Windows 11"
+    assert passport["os_build"] == "26100"
+    assert passport["source"] == "Windows Collector"
+    assert passport["confidence"] == "High"
+    assert passport["collection_time"] == "2026-09-27"
+    assert passport["data_quality"] == "Complete"
+    assert passport["completeness_score"] == 100.0
+
+    # 2. Incomplete / Partial Record Assessment (Do NOT throw bad records away)
+    sample_partial = {
+        "ip_address": "10.0.0.99",
+        "hostname": "UNKNOWN-DEV"
+    }
+    partial_passport = DataQualityLayer.assess_record_quality(sample_partial, source="Passive Flow Sighting")
+    assert partial_passport["data_quality"] in ["Partial", "Degraded"]
+    assert partial_passport["confidence"] == "Low"
+    assert len(partial_passport["missing_fields"]) > 0
+
+    # 3. Test API Endpoints
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@sentinel-x.sec", "password": "SentinelAdmin2026!"}
+        )
+        token = login.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Quality Evaluate endpoint
+        eval_res = await client.post(
+            "/api/v1/cleaning/quality/evaluate",
+            headers=headers,
+            json={
+                "ip_address": "127.0.0.1",
+                "hostname": "PAVILION_23",
+                "os_name": "Windows 11",
+                "os_build": "26100",
+                "source": "Windows Collector"
+            }
+        )
+        assert eval_res.status_code == 200
+        data = eval_res.json()
+        assert data["os"] == "Windows 11"
+        assert data["os_build"] == "26100"
+        assert data["source"] == "Windows Collector"
+        assert data["confidence"] == "High"
+        assert data["data_quality"] == "Complete"
+
+        # Quality Summary endpoint
+        summary_res = await client.get("/api/v1/cleaning/quality/summary", headers=headers)
+        assert summary_res.status_code == 200
+        summary_data = summary_res.json()
+        assert "quality_distribution" in summary_data
+        assert "confidence_distribution" in summary_data
+        assert summary_data["total_assets"] >= 1
+
+        # Quality Audit endpoint
+        audit_res = await client.post("/api/v1/cleaning/quality/audit", headers=headers)
+        assert audit_res.status_code == 200
+        audit_data = audit_res.json()
+        assert audit_data["success"] is True
+        assert "audit_report" in audit_data
