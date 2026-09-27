@@ -181,3 +181,44 @@ async def test_nmap_status_and_laptop_audit():
         vulns_res = await client.get("/api/v1/vulnerabilities", headers=headers)
         assert vulns_res.status_code == 200
         assert isinstance(vulns_res.json(), list)
+
+@pytest.mark.asyncio
+async def test_openvas_integration():
+    """Validates OpenVAS status, test connection, and report ingestion."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        login = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@sentinel-x.sec", "password": "SentinelAdmin2026!"}
+        )
+        assert login.status_code == 200
+        token = login.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # 1. OpenVAS status
+        status_res = await client.get("/api/v1/openvas/status", headers=headers)
+        assert status_res.status_code == 200
+        status_data = status_res.json()
+        assert "supported_formats" in status_data
+        assert "host" in status_data
+
+        # 2. OpenVAS connection test (unreachable port test)
+        conn_res = await client.post("/api/v1/openvas/test-connection", headers=headers)
+        assert conn_res.status_code == 200
+        assert "status" in conn_res.json()
+
+        # 3. OpenVAS sample report import (Router, CCTV, Server)
+        import_res = await client.post("/api/v1/openvas/import-sample", headers=headers)
+        assert import_res.status_code == 200
+        import_data = import_res.json()
+        assert import_data["success"] is True
+        assert import_data["new_vulnerabilities"] >= 3
+        assert import_data["assets_affected"] >= 3
+
+        # 4. Verify ingested CVEs in vulnerability catalog
+        vulns_res = await client.get("/api/v1/vulnerabilities", headers=headers)
+        assert vulns_res.status_code == 200
+        cves = [v["cve_id"] for v in vulns_res.json()]
+        assert "CVE-2023-1389" in cves   # Router
+        assert "CVE-2021-36260" in cves  # CCTV Camera
+        assert "CVE-2023-38408" in cves  # Server

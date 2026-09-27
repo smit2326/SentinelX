@@ -11,7 +11,12 @@ import {
   X,
   FileText,
   Laptop,
-  Shield
+  Shield,
+  FileUp,
+  Server,
+  Upload,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Vulnerability, VulnerabilityStats } from '../types';
@@ -28,6 +33,18 @@ export const VulnerabilitiesPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isAuditingLaptop, setIsAuditingLaptop] = useState<boolean>(false);
   
+  // OpenVAS Ingestion & Connector Modal
+  const [isOpenVASModalOpen, setIsOpenVASModalOpen] = useState<boolean>(false);
+  const [openvasTab, setOpenvasTab] = useState<'import' | 'remote'>('import');
+  const [openvasStatus, setOpenvasStatus] = useState<any>(null);
+  const [isUploadingReport, setIsUploadingReport] = useState<boolean>(false);
+  const [uploadFeedback, setUploadFeedback] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [gvmHost, setGvmHost] = useState<string>('127.0.0.1');
+  const [gvmPort, setGvmPort] = useState<string>('9390');
+  const [gvmUser, setGvmUser] = useState<string>('admin');
+  const [isTestingConn, setIsTestingConn] = useState<boolean>(false);
+  const [connResult, setConnResult] = useState<{ success: boolean, message: string } | null>(null);
+
   // Triage Modal
   const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
   const [triageStatus, setTriageStatus] = useState<string>('OPEN');
@@ -65,6 +82,85 @@ export const VulnerabilitiesPage: React.FC = () => {
     } catch (e) {
       console.error('Failed to run laptop audit:', e);
       setIsAuditingLaptop(false);
+    }
+  };
+
+  const fetchOpenVASStatus = async () => {
+    try {
+      const res = await api.get('/openvas/status');
+      setOpenvasStatus(res.data);
+      if (res.data.host) setGvmHost(res.data.host);
+      if (res.data.port) setGvmPort(String(res.data.port));
+      if (res.data.username) setGvmUser(res.data.username);
+    } catch (e) {
+      console.error('Failed to get OpenVAS status:', e);
+    }
+  };
+
+  const handleOpenOpenVASModal = async () => {
+    setIsOpenVASModalOpen(true);
+    setUploadFeedback(null);
+    setConnResult(null);
+    await fetchOpenVASStatus();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingReport(true);
+      setUploadFeedback(null);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/openvas/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setUploadFeedback({ type: 'success', text: res.data.message });
+      await fetchVulns();
+      await fetchOpenVASStatus();
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Failed to parse OpenVAS report.';
+      setUploadFeedback({ type: 'error', text: msg });
+    } finally {
+      setIsUploadingReport(false);
+    }
+  };
+
+  const handleLoadSampleReport = async () => {
+    try {
+      setIsUploadingReport(true);
+      setUploadFeedback(null);
+      const res = await api.post('/openvas/import-sample');
+      setUploadFeedback({
+        type: 'success',
+        text: `Sample report loaded! ${res.data.new_vulnerabilities} new CVEs added across ${res.data.assets_affected} infrastructure assets.`
+      });
+      await fetchVulns();
+      await fetchOpenVASStatus();
+    } catch (err: any) {
+      setUploadFeedback({ type: 'error', text: err.response?.data?.detail || 'Failed to load sample report.' });
+    } finally {
+      setIsUploadingReport(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      setIsTestingConn(true);
+      setConnResult(null);
+      await api.post('/openvas/config', {
+        host: gvmHost,
+        port: parseInt(gvmPort, 10) || 9390,
+        username: gvmUser,
+        use_tls: true
+      });
+      const res = await api.post('/openvas/test-connection');
+      setConnResult({ success: res.data.success, message: res.data.message });
+      await fetchOpenVASStatus();
+    } catch (err: any) {
+      setConnResult({ success: false, message: err.response?.data?.detail || 'Connection test failed.' });
+    } finally {
+      setIsTestingConn(false);
     }
   };
 
@@ -120,17 +216,28 @@ export const VulnerabilitiesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {isAnalyst && (
-            <button
-              onClick={handleAuditThisLaptop}
-              disabled={isAuditingLaptop}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-amber-500/25 disabled:opacity-50"
-              title="Executes authentic Nmap scan and security posture assessment on this machine"
-            >
-              <Laptop className={`h-4 w-4 ${isAuditingLaptop ? 'animate-pulse' : ''}`} />
-              <span>{isAuditingLaptop ? 'AUDITING LAPTOP...' : 'AUDIT THIS LAPTOP (NMAP)'}</span>
-            </button>
+            <>
+              <button
+                onClick={handleAuditThisLaptop}
+                disabled={isAuditingLaptop}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-amber-500/25 disabled:opacity-50"
+                title="Executes authentic Nmap scan and security posture assessment on this machine"
+              >
+                <Laptop className={`h-4 w-4 ${isAuditingLaptop ? 'animate-pulse' : ''}`} />
+                <span>{isAuditingLaptop ? 'AUDITING LAPTOP...' : 'AUDIT THIS LAPTOP (NMAP)'}</span>
+              </button>
+
+              <button
+                onClick={handleOpenOpenVASModal}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-emerald-500/25"
+                title="OpenVAS / Greenbone Report Ingestion and Daemon Connector"
+              >
+                <FileUp className="h-4 w-4" />
+                <span>OPENVAS SCANNER</span>
+              </button>
+            </>
           )}
 
           <button
@@ -374,6 +481,194 @@ export const VulnerabilitiesPage: React.FC = () => {
                 </div>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* OpenVAS Scanner & Report Ingestion Modal */}
+      {isOpenVASModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="cyber-card w-full max-w-2xl p-6 rounded-2xl border border-emerald-500/40 shadow-2xl shadow-emerald-500/10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  <FileUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold font-mono text-white flex items-center gap-2">
+                    OPENVAS / GREENBONE CONNECTOR
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/50 border border-emerald-500/30 text-emerald-400">
+                      PHASE 2
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    Ingest OpenVAS XML/CSV vulnerability reports or interface with remote GVM daemons.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpenVASModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 mt-4 border-b border-slate-800/80 pb-2 font-mono text-xs">
+              <button
+                onClick={() => setOpenvasTab('import')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                  openvasTab === 'import'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>REPORT INGESTION (XML / CSV)</span>
+              </button>
+
+              <button
+                onClick={() => setOpenvasTab('remote')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
+                  openvasTab === 'remote'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Server className="h-3.5 w-3.5" />
+                <span>REMOTE GVM DAEMON (GMP)</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Report Ingestion */}
+            {openvasTab === 'import' && (
+              <div className="mt-4 space-y-4 font-mono text-xs">
+                <div className="p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-emerald-500/60 bg-slate-900/50 text-center transition-all">
+                  <FileUp className="h-8 w-8 text-emerald-400 mx-auto mb-2 opacity-80" />
+                  <p className="text-white font-bold mb-1">Select or drop an OpenVAS Scan Report</p>
+                  <p className="text-[11px] text-slate-400 mb-3">
+                    Supports Greenbone Vulnerability Management XML (*.xml) and CSV (*.csv) exports.
+                  </p>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold cursor-pointer transition-all shadow-md shadow-emerald-500/20">
+                    <Upload className="h-4 w-4" />
+                    <span>{isUploadingReport ? 'PROCESSING REPORT...' : 'CHOOSE FILE'}</span>
+                    <input
+                      type="file"
+                      accept=".xml,.csv"
+                      onChange={handleFileUpload}
+                      disabled={isUploadingReport}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div>
+                    <span className="text-white font-bold block text-xs">Demo OpenVAS Pipeline</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      Ingest authentic OpenVAS report with Router (CVE-2023-1389), CCTV (CVE-2021-36260), and Server CVEs.
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleLoadSampleReport}
+                    disabled={isUploadingReport}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500 transition-all font-bold whitespace-nowrap"
+                  >
+                    LOAD SAMPLE REPORT
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Remote GVM Daemon */}
+            {openvasTab === 'remote' && (
+              <div className="mt-4 space-y-4 font-mono text-xs">
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase block">Daemon Status</span>
+                    <span className="text-white font-bold">
+                      {openvasStatus?.last_connection_status || 'NOT_CONNECTED'}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase border ${
+                    openvasStatus?.last_connection_status === 'CONNECTED'
+                      ? 'bg-emerald-950/50 text-emerald-400 border-emerald-500/40'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    GMP Protocol (Port 9390)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-bold">DAEMON HOST / IP</label>
+                    <input
+                      type="text"
+                      value={gvmHost}
+                      onChange={(e) => setGvmHost(e.target.value)}
+                      placeholder="e.g. 192.168.1.50 or 127.0.0.1"
+                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-bold">GMP PORT</label>
+                    <input
+                      type="text"
+                      value={gvmPort}
+                      onChange={(e) => setGvmPort(e.target.value)}
+                      placeholder="9390"
+                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-bold">API USERNAME</label>
+                  <input
+                    type="text"
+                    value={gvmUser}
+                    onChange={(e) => setGvmUser(e.target.value)}
+                    placeholder="admin"
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-400"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTestingConn}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold transition-all shadow-md shadow-emerald-500/20"
+                  >
+                    <Server className="h-4 w-4" />
+                    <span>{isTestingConn ? 'TESTING CONNECTIVITY...' : 'TEST DAEMON CONNECTION'}</span>
+                  </button>
+                </div>
+
+                {connResult && (
+                  <div className={`p-3 rounded-xl border flex items-start gap-2 ${
+                    connResult.success
+                      ? 'bg-emerald-950/20 border-emerald-500/40 text-emerald-300'
+                      : 'bg-amber-950/20 border-amber-500/40 text-amber-300'
+                  }`}>
+                    {connResult.success ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+                    <span className="text-[11px] leading-relaxed">{connResult.message}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Ingestion Feedback Banner */}
+            {uploadFeedback && (
+              <div className={`mt-4 p-3 rounded-xl border font-mono text-xs flex items-start gap-2 ${
+                uploadFeedback.type === 'success'
+                  ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300'
+                  : 'bg-red-950/30 border-red-500/50 text-red-300'
+              }`}>
+                {uploadFeedback.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+                <span className="text-[11px] leading-relaxed">{uploadFeedback.text}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
