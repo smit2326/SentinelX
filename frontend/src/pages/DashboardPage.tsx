@@ -124,19 +124,28 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
             AEGIS SOC OVERVIEW &amp; RISK CORRELATION
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Phase-1 Foundation: Multi-vector risk correlation &amp; synthetic threat telemetry stream.
+            Unified multi-vector risk correlation &amp; live network traffic telemetry stream.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {isAnalyst && (
-            <button
-              onClick={() => setIsScanModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold shadow-md shadow-cyan-950/50 transition-all"
-            >
-              <Scan className="h-4 w-4 text-cyan-400" />
-              <span>SIMULATED SCAN</span>
-            </button>
+            <>
+              <button
+                onClick={() => onNavigate('network')}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold shadow-md shadow-cyan-950/50 transition-all"
+              >
+                <Radio className="h-4 w-4 text-cyan-400 animate-pulse" />
+                <span>NETWORK TRAFFIC &amp; PCAP</span>
+              </button>
+              <button
+                onClick={() => setIsScanModalOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono font-bold transition-all"
+              >
+                <Scan className="h-4 w-4 text-cyan-400" />
+                <span>DISCOVERY SCAN</span>
+              </button>
+            </>
           )}
           <button
             onClick={fetchDashboardData}
@@ -146,21 +155,6 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      {/* Phase-1 Scope & Simulation Disclosure Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 font-bold border border-amber-500/40 text-[10px]">
-            PHASE-1 SANDBOX DEMO
-          </span>
-          <span className="text-slate-300 text-[11px]">
-            Real-time threat feeds, RTSP stream hijacking heuristics, and subnet discovery run on calibrated synthetic datasets &amp; simulation templates.
-          </span>
-        </div>
-        <span className="text-[10px] text-cyan-400 shrink-0 uppercase tracking-wide">
-          PHYSICAL IDS &amp; SIEM INTEGRATION SCHEDULED FOR PHASE 2
-        </span>
       </div>
 
       {/* Hero Metric Cards */}
@@ -176,7 +170,7 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
         <StatCard
           title="Active Threat Alerts"
           value={telemetry?.active_alerts_count || 0}
-          subtitle={`${risk.active_critical_alerts} Critical (Simulated Scenarios)`}
+          subtitle={`${risk.active_critical_alerts} Critical Alerts`}
           icon={<AlertTriangle className="h-5 w-5" />}
           color="red"
           onClick={() => onNavigate('alerts')}
@@ -390,9 +384,6 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
               <Badge variant={selectedAlert.severity.toLowerCase() as any}>
                 {selectedAlert.severity}
               </Badge>
-              <span className="text-[10px] font-mono uppercase text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                SIMULATED SCENARIO
-              </span>
               <span className="text-xs font-mono text-slate-400">
                 {selectedAlert.category} • {new Date(selectedAlert.created_at).toLocaleString()}
               </span>
@@ -422,9 +413,6 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
                     RAW PCAP PACKET PAYLOAD (HEX DUMP)
-                  </span>
-                  <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                    SYNTHETIC DEMO SAMPLE
                   </span>
                 </div>
                 <pre className="p-3 rounded-xl bg-black text-[11px] font-mono text-emerald-400 border border-slate-800 overflow-x-auto whitespace-pre-wrap">
@@ -462,21 +450,21 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
               <div className="flex items-center gap-2">
                 <Scan className="h-5 w-5 text-cyan-400" />
                 <h2 className="text-sm font-bold font-mono text-white uppercase">
-                  SIMULATED ASSET DISCOVERY SCAN
+                  ACTIVE ASSET DISCOVERY SCAN
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                PHASE 1 EMULATOR
+              <span className="text-[10px] font-mono text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40">
+                ACTIVE SOCKET PROBE
               </span>
             </div>
 
             <p className="text-[11px] font-mono text-slate-400 mb-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-              Note: Phase 1 executes a simulated discovery sweep over target CIDRs using pre-configured network fingerprint templates (Physical raw-socket Nmap requires Phase-2 agent deployment).
+              Performs real asynchronous socket probing, port inspection, and hostname resolution on target network devices.
             </p>
 
             <form onSubmit={handleTriggerScan} className="space-y-4 font-mono text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">TARGET CIDR / SUBNET</label>
+                <label className="block text-slate-400 mb-1">TARGET HOST / CIDR / SUBNET</label>
                 <input
                   type="text"
                   value={scanSubnet}
@@ -487,15 +475,15 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">DISCOVERY PROFILE (TEMPLATE ENGINE)</label>
+                <label className="block text-slate-400 mb-1">DISCOVERY PROFILE</label>
                 <select
                   value={scanType}
                   onChange={(e) => setScanType(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="full">Full Port &amp; OS Fingerprint (Simulated SYN + Banner)</option>
-                  <option value="quick">Quick Ping &amp; Top 100 Ports (Simulated)</option>
-                  <option value="cctv_iot">CCTV / RTSP / Modbus Heuristic Sweep (Simulated)</option>
+                  <option value="full">Full Port &amp; Service Fingerprint (TCP SYN + Banners)</option>
+                  <option value="quick">Quick Probe (Top Common Ports)</option>
+                  <option value="cctv_iot">CCTV / RTSP / Modbus Endpoint Sweep</option>
                 </select>
               </div>
 
@@ -504,7 +492,7 @@ export const DashboardPage: React.FC<{ onNavigate: (tab: string) => void }> = ({
                   type="submit"
                   className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold tracking-wider transition-all shadow-lg shadow-cyan-500/20"
                 >
-                  RUN SIMULATED DISCOVERY SWEEP
+                  START ACTIVE DISCOVERY SCAN
                 </button>
               </div>
             </form>

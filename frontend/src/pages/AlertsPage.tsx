@@ -21,7 +21,7 @@ import { Badge } from '../components/common/Badge';
 
 export const AlertsPage: React.FC = () => {
   const { isAnalyst, user } = useAuth();
-  const { liveAlerts, triggerSimulatedAlert } = useWebSocket();
+  const { liveAlerts } = useWebSocket();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [stats, setStats] = useState<AlertStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -29,7 +29,6 @@ export const AlertsPage: React.FC = () => {
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   const fetchAlerts = async () => {
     try {
@@ -67,15 +66,6 @@ export const AlertsPage: React.FC = () => {
     }
   };
 
-  const handleSimulate = async () => {
-    setIsSimulating(true);
-    await triggerSimulatedAlert();
-    setTimeout(async () => {
-      await fetchAlerts();
-      setIsSimulating(false);
-    }, 500);
-  };
-
   const filteredAlerts = alerts.filter(a => {
     const matchesSearch =
       a.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,21 +90,11 @@ export const AlertsPage: React.FC = () => {
             INCIDENT RESPONSE &amp; TRAFFIC MONITORING
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Phase-1 Emulation: Simulated traffic anomaly generation, synthetic brute-force alerts, and demo RTSP stream hijacking forensics.
+            Real-time security incident response queue, triage investigation, and network evidence forensics.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {isAnalyst && (
-            <button
-              onClick={handleSimulate}
-              disabled={isSimulating}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-700/60 text-xs font-mono font-bold transition-all shadow-md shadow-red-950/50"
-            >
-              <Zap className={`h-4 w-4 text-red-400 ${isSimulating ? 'animate-spin' : ''}`} />
-              <span>INJECT SIMULATED ATTACK</span>
-            </button>
-          )}
           <button
             onClick={fetchAlerts}
             className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all"
@@ -123,21 +103,6 @@ export const AlertsPage: React.FC = () => {
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      {/* Phase-1 Simulation Scope Notice */}
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 font-bold border border-amber-500/40 text-[10px]">
-            SYNTHETIC TELEMETRY
-          </span>
-          <span className="text-slate-300 text-[11px]">
-            All incidents in this queue are simulated scenarios generated to evaluate risk correlation and analyst triage.
-          </span>
-        </div>
-        <span className="text-[10px] text-slate-400 hidden sm:inline">
-          LIVE TAP / SPAN MIRRORING DEFERRED TO PHASE 2
-        </span>
       </div>
 
       {/* KPI Stats */}
@@ -229,9 +194,6 @@ export const AlertsPage: React.FC = () => {
                         <Badge size="sm" variant={alert.severity.toLowerCase() as any}>
                           {alert.severity}
                         </Badge>
-                        <span className="text-[10px] font-mono uppercase text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                          SIMULATED
-                        </span>
                         <span className="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800">
                           {alert.category}
                         </span>
@@ -269,9 +231,6 @@ export const AlertsPage: React.FC = () => {
                   <Badge size="md" variant={selectedAlert.severity.toLowerCase() as any}>
                     {selectedAlert.severity} PRIORITY
                   </Badge>
-                  <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-500/40">
-                    SIMULATED SCENARIO
-                  </span>
                 </div>
                 <span className="text-slate-400 text-[11px]">
                   ID #{selectedAlert.id}
@@ -307,9 +266,8 @@ export const AlertsPage: React.FC = () => {
                   <div className="flex items-center justify-between text-slate-400 mb-1">
                     <div className="flex items-center gap-1.5">
                       <Terminal className="h-3.5 w-3.5 text-emerald-400" />
-                      <span className="text-[10px] uppercase font-bold">SYNTHETIC PCAP CAPTURE (HEX DUMP)</span>
+                      <span className="text-[10px] uppercase font-bold">PACKET PAYLOAD (HEX DUMP)</span>
                     </div>
-                    <span className="text-[9px] text-amber-400 font-mono">DEMO PAYLOAD</span>
                   </div>
                   <pre className="p-2.5 rounded-xl bg-black text-[10px] font-mono text-emerald-400 border border-slate-800 overflow-x-auto whitespace-pre-wrap">
                     {selectedAlert.raw_packet_hex}

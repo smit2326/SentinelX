@@ -12,6 +12,7 @@ import { SecurityReportPage } from './pages/SecurityReportPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { UserRolesPage } from './pages/UserRolesPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { NetworkTrafficPage } from './pages/NetworkTrafficPage';
 import { AlertTriangle, X, ArrowRight } from 'lucide-react';
 import { Badge } from './components/common/Badge';
 
@@ -79,6 +80,7 @@ const MainApp: React.FC = () => {
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
           {currentTab === 'dashboard' && <DashboardPage onNavigate={setCurrentTab} />}
+          {currentTab === 'network' && <NetworkTrafficPage />}
           {currentTab === 'assets' && <AssetsPage />}
           {currentTab === 'vulnerabilities' && <VulnerabilitiesPage />}
           {currentTab === 'alerts' && <AlertsPage />}

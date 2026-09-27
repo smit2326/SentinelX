@@ -14,7 +14,6 @@ interface WebSocketContextType {
   latestAlert: Alert | null;
   scanProgress: ScanProgress | null;
   clearLatestAlert: () => void;
-  triggerSimulatedAlert: () => Promise<void>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -61,15 +60,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLatestAlert(null);
   };
 
-  const triggerSimulatedAlert = async () => {
-    try {
-      const { api } = await import('../services/api');
-      await api.post('/alerts/simulate');
-    } catch (e) {
-      console.error('Error triggering simulated alert:', e);
-    }
-  };
-
   return (
     <WebSocketContext.Provider
       value={{
@@ -78,7 +68,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         latestAlert,
         scanProgress,
         clearLatestAlert,
-        triggerSimulatedAlert,
       }}
     >
       {children}

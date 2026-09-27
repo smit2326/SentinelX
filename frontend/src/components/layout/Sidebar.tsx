@@ -10,7 +10,8 @@ import {
   Settings,
   ShieldCheck,
   Video,
-  Cpu
+  Cpu,
+  Radio
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,6 +29,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
       label: 'Executive SOC',
       icon: <LayoutDashboard className="h-4 w-4" />,
       badge: null,
+      visible: true
+    },
+    {
+      id: 'network',
+      label: 'Network Traffic & PCAP',
+      icon: <Radio className="h-4 w-4" />,
+      badge: 'PHASE 2',
+      badgeColor: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
       visible: true
     },
     {

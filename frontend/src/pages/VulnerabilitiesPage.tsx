@@ -9,7 +9,9 @@ import {
   ExternalLink,
   CheckCircle,
   X,
-  FileText
+  FileText,
+  Laptop,
+  Shield
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Vulnerability, VulnerabilityStats } from '../types';
@@ -24,6 +26,7 @@ export const VulnerabilitiesPage: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isAuditingLaptop, setIsAuditingLaptop] = useState<boolean>(false);
   
   // Triage Modal
   const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
@@ -50,6 +53,20 @@ export const VulnerabilitiesPage: React.FC = () => {
   useEffect(() => {
     fetchVulns();
   }, []);
+
+  const handleAuditThisLaptop = async () => {
+    try {
+      setIsAuditingLaptop(true);
+      await api.post('/assets/scan/laptop', { target_ip: '127.0.0.1' });
+      setTimeout(async () => {
+        await fetchVulns();
+        setIsAuditingLaptop(false);
+      }, 14000);
+    } catch (e) {
+      console.error('Failed to run laptop audit:', e);
+      setIsAuditingLaptop(false);
+    }
+  };
 
   const handleOpenTriage = (v: Vulnerability) => {
     setSelectedVuln(v);
@@ -99,17 +116,31 @@ export const VulnerabilitiesPage: React.FC = () => {
             VULNERABILITY ASSESSMENT &amp; CVE TRIAGE
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Real-time correlation of open ports against National Vulnerability Database (NVD) CVE catalog.
+            Real-time correlation of open ports and services against Nmap security audit engine and CVE catalog.
           </p>
         </div>
 
-        <button
-          onClick={fetchVulns}
-          className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all self-start md:self-auto"
-          title="Refresh CVE Catalog"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-3">
+          {isAnalyst && (
+            <button
+              onClick={handleAuditThisLaptop}
+              disabled={isAuditingLaptop}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-amber-500/25 disabled:opacity-50"
+              title="Executes authentic Nmap scan and security posture assessment on this machine"
+            >
+              <Laptop className={`h-4 w-4 ${isAuditingLaptop ? 'animate-pulse' : ''}`} />
+              <span>{isAuditingLaptop ? 'AUDITING LAPTOP...' : 'AUDIT THIS LAPTOP (NMAP)'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={fetchVulns}
+            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all self-start md:self-auto"
+            title="Refresh CVE Catalog"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI Pills */}

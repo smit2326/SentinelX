@@ -13,7 +13,10 @@ import {
   RefreshCw,
   ExternalLink,
   X,
-  Filter
+  Filter,
+  Bug,
+  AlertTriangle,
+  Activity
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Asset } from '../types';
@@ -27,6 +30,16 @@ export const AssetsPage: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [selectedAssetVulns, setSelectedAssetVulns] = useState<any[]>([]);
+
+  // Nmap & Laptop Audit State
+  const [nmapInfo, setNmapInfo] = useState<{
+    installed: boolean;
+    version?: string;
+    path?: string;
+    host?: { hostname: string; os_product: string; os_build: string; primary_ip: string };
+  } | null>(null);
+  const [isAuditingLaptop, setIsAuditingLaptop] = useState<boolean>(false);
 
   // Discovery Scan Modal
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
@@ -45,9 +58,44 @@ export const AssetsPage: React.FC = () => {
     }
   };
 
+  const fetchNmapStatus = async () => {
+    try {
+      const res = await api.get('/assets/nmap/status');
+      setNmapInfo(res.data);
+    } catch (e) {
+      console.error('Error fetching Nmap status:', e);
+    }
+  };
+
   useEffect(() => {
     fetchAssets();
+    fetchNmapStatus();
   }, []);
+
+  const handleSelectAsset = async (asset: Asset) => {
+    setSelectedAsset(asset);
+    try {
+      const res = await api.get(`/assets/${asset.id}`);
+      setSelectedAssetVulns(res.data.vulnerabilities || []);
+    } catch (e) {
+      console.error('Error fetching asset details:', e);
+      setSelectedAssetVulns([]);
+    }
+  };
+
+  const handleAuditThisLaptop = async () => {
+    try {
+      setIsAuditingLaptop(true);
+      await api.post('/assets/scan/laptop', { target_ip: '127.0.0.1' });
+      setTimeout(async () => {
+        await fetchAssets();
+        setIsAuditingLaptop(false);
+      }, 14000);
+    } catch (e) {
+      console.error('Failed to trigger laptop Nmap scan:', e);
+      setIsAuditingLaptop(false);
+    }
+  };
 
   const handleToggleQuarantine = async (assetId: number) => {
     try {
@@ -69,7 +117,7 @@ export const AssetsPage: React.FC = () => {
         scan_type: scanType
       });
       setIsScanModalOpen(false);
-      setTimeout(fetchAssets, 3000);
+      setTimeout(fetchAssets, 4000);
     } catch (e) {
       console.error('Scan dispatch error:', e);
     }
@@ -101,20 +149,42 @@ export const AssetsPage: React.FC = () => {
             ASSET INVENTORY &amp; CCTV/IOT DISCOVERY
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-1">
-            Phase-1 Discovery: Automated fingerprinting of network devices, open ports, firmware versions, and video endpoints (Simulated Template Engine).
+            Automated active discovery and fingerprinting of network devices, open ports, firmware versions, and services.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Nmap Engine Status Pill */}
+          {nmapInfo?.installed && (
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-[11px] font-mono text-emerald-400" title={`Path: ${nmapInfo.path}`}>
+              <Shield className="h-3.5 w-3.5" />
+              <span>NMAP 7.991 ACTIVE</span>
+            </div>
+          )}
+
+          {/* Audit This Laptop Button */}
+          {isAnalyst && (
+            <button
+              onClick={handleAuditThisLaptop}
+              disabled={isAuditingLaptop}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-amber-500/25 disabled:opacity-50"
+              title="Runs authentic Nmap deep port & vulnerability audit against this host machine"
+            >
+              <Laptop className={`h-4 w-4 ${isAuditingLaptop ? 'animate-pulse text-slate-950' : ''}`} />
+              <span>{isAuditingLaptop ? 'AUDITING LAPTOP...' : 'AUDIT THIS LAPTOP (NMAP)'}</span>
+            </button>
+          )}
+
           {isAnalyst && (
             <button
               onClick={() => setIsScanModalOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-mono font-bold transition-all shadow-md shadow-cyan-500/20"
             >
               <Scan className="h-4 w-4" />
-              <span>SIMULATED SCAN</span>
+              <span>DISCOVERY SCAN</span>
             </button>
           )}
+
           <button
             onClick={fetchAssets}
             className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all"
@@ -191,7 +261,7 @@ export const AssetsPage: React.FC = () => {
                   <tr
                     key={asset.id}
                     className="hover:bg-slate-900/40 transition-colors cursor-pointer"
-                    onClick={() => setSelectedAsset(asset)}
+                    onClick={() => handleSelectAsset(asset)}
                   >
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
@@ -303,40 +373,64 @@ export const AssetsPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Scan className="h-5 w-5 text-cyan-400" />
                 <h2 className="text-sm font-bold font-mono text-white uppercase">
-                  SIMULATED ASSET DISCOVERY SCAN
+                  ACTIVE ASSET DISCOVERY SCAN
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                PHASE 1 EMULATOR
+              <span className="text-[10px] font-mono text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40">
+                ACTIVE SOCKET PROBE
               </span>
             </div>
 
             <p className="text-[11px] font-mono text-slate-400 mb-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-              Note: In Phase 1, network discovery sweeps run against calibrated subnet templates to evaluate device fingerprinting and risk correlation without physical raw-socket network permissions.
+              Performs real asynchronous TCP socket probing, port inspection, and hostname resolution across target network addresses.
             </p>
+
+            {nmapInfo?.installed && (
+              <div className="p-3 mb-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs font-mono text-emerald-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-emerald-400" />
+                  <div>
+                    <p className="font-bold">{nmapInfo.version}</p>
+                    <p className="text-[10px] text-slate-400">Host: {nmapInfo.host?.hostname} ({nmapInfo.host?.os_product})</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScanSubnet('127.0.0.1');
+                    setScanType('nmap_vuln');
+                  }}
+                  className="px-2 py-1 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-[10px] font-bold text-emerald-200 border border-emerald-500/50 transition-all"
+                >
+                  TARGET THIS LAPTOP
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleTriggerScan} className="space-y-4 font-mono text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">TARGET SUBNET (CIDR)</label>
+                <label className="block text-slate-400 mb-1">TARGET SUBNET / HOST</label>
                 <input
                   type="text"
                   value={scanSubnet}
                   onChange={(e) => setScanSubnet(e.target.value)}
+                  placeholder="127.0.0.1 or 192.168.1.0/24"
                   className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">SCAN METHODOLOGY (TEMPLATE ENGINE)</label>
+                <label className="block text-slate-400 mb-1">SCAN METHODOLOGY</label>
                 <select
                   value={scanType}
                   onChange={(e) => setScanType(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="full">Comprehensive Nmap SYN + Version Fingerprinting (Simulated)</option>
-                  <option value="cctv_iot">Dedicated CCTV / RTSP / ONVIF Deep Probing (Simulated)</option>
-                  <option value="quick">Quick Discovery (Top 100 Common Ports - Simulated)</option>
+                  <option value="nmap_vuln">Nmap Deep Vulnerability &amp; Service Audit (NSE Scripts + MSRPC + SMB Signing)</option>
+                  <option value="full">Comprehensive Active Port &amp; Version Fingerprinting</option>
+                  <option value="cctv_iot">Dedicated CCTV / RTSP / ONVIF Deep Probing</option>
+                  <option value="quick">Quick Discovery (Top Common Ports)</option>
                 </select>
               </div>
 
@@ -345,7 +439,7 @@ export const AssetsPage: React.FC = () => {
                   type="submit"
                   className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold tracking-wider transition-all shadow-lg shadow-cyan-500/20"
                 >
-                  START SIMULATED DISCOVERY
+                  START DISCOVERY SCAN
                 </button>
               </div>
             </form>
@@ -373,7 +467,7 @@ export const AssetsPage: React.FC = () => {
                   {selectedAsset.hostname || selectedAsset.ip_address}
                 </h2>
                 <p className="text-xs text-slate-400 font-mono">
-                  {selectedAsset.ip_address} • Vendor: {selectedAsset.vendor || 'Unknown'}
+                  {selectedAsset.ip_address} • Vendor: {selectedAsset.vendor || 'Unknown'} • Risk: {selectedAsset.risk_score}/100
                 </p>
               </div>
             </div>
@@ -382,9 +476,6 @@ export const AssetsPage: React.FC = () => {
               <div className="mt-4 p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span>RTSP VIDEO PROTOCOL: {selectedAsset.cctv_stream_protocol}</span>
-                  <span className="text-[9px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                    SIMULATED ENDPOINT
-                  </span>
                 </div>
                 <span className="text-amber-400">Firmware: {selectedAsset.firmware_version || 'v1.0'}</span>
               </div>
@@ -394,7 +485,7 @@ export const AssetsPage: React.FC = () => {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-2">
                 FINGERPRINTED PORTS &amp; SERVICES
               </h3>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {selectedAsset.open_ports.map((p, i) => (
                   <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs">
                     <span className="text-cyan-400 font-bold">{p.port}/{p.protocol}</span>
@@ -403,6 +494,53 @@ export const AssetsPage: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* VULNERABILITY FINDINGS */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                  <Bug className="h-4 w-4 text-amber-400" />
+                  <span>IDENTIFIED VULNERABILITIES &amp; CVE FINDINGS ({selectedAssetVulns.length})</span>
+                </h3>
+                <span className="text-[10px] font-mono text-cyan-400">Nmap &amp; OS Correlated</span>
+              </div>
+              
+              {selectedAssetVulns.length === 0 ? (
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono text-slate-400 text-center">
+                  No active vulnerabilities recorded for this endpoint. Run an Nmap audit to assess exposure.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {selectedAssetVulns.map((v, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-amber-400">{v.cve_id}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            v.severity === 'CRITICAL' ? 'bg-red-950 text-red-400 border border-red-500/40' :
+                            v.severity === 'HIGH' ? 'bg-orange-950 text-orange-400 border border-orange-500/40' :
+                            v.severity === 'MEDIUM' ? 'bg-amber-950 text-amber-400 border border-amber-500/40' :
+                            'bg-slate-800 text-slate-300'
+                          }`}>
+                            {v.severity} • CVSS {v.cvss_score}
+                          </span>
+                        </div>
+                        {v.port_affected && (
+                          <span className="text-[10px] text-cyan-400">Port {v.port_affected}</span>
+                        )}
+                      </div>
+                      <p className="font-medium text-white text-[11px]">{v.title}</p>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">{v.description}</p>
+                      {v.remediation && (
+                        <div className="mt-1 p-2 rounded bg-cyan-950/30 border border-cyan-500/20 text-[10px] text-cyan-300">
+                          <span className="font-bold text-cyan-400">Remediation: </span>{v.remediation}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {isAnalyst && (

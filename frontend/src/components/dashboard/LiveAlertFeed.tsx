@@ -20,14 +20,11 @@ export const LiveAlertFeed: React.FC<LiveAlertFeedProps> = ({
         <div className="flex items-center gap-2">
           <ShieldAlert className="h-4 w-4 text-red-400 animate-pulse" />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-            INCIDENT TELEMETRY (SIMULATED FEED)
-          </span>
-          <span className="text-[10px] font-mono text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-500/40">
-            PHASE 1 DEMO
+            INCIDENT TELEMETRY STREAM
           </span>
         </div>
         <span className="text-[11px] font-mono text-slate-400">
-          Showing {alerts.length} Synthetic Incidents
+          Showing {alerts.length} Incidents
         </span>
       </div>
 
@@ -57,9 +54,6 @@ export const LiveAlertFeed: React.FC<LiveAlertFeedProps> = ({
                       <Badge size="sm" variant={alert.severity.toLowerCase() as any}>
                         {alert.severity}
                       </Badge>
-                      <span className="text-[10px] font-mono uppercase text-amber-400 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40">
-                        SIMULATED
-                      </span>
                       <span className="text-[10px] font-mono uppercase text-slate-400 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800">
                         {alert.category}
                       </span>

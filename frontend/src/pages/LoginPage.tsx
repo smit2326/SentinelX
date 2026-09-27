@@ -124,7 +124,7 @@ export const LoginPage: React.FC = () => {
           {/* Instant 1-Click Role Access */}
           <div className="mt-6 pt-5 border-t border-slate-800/80">
             <span className="text-[10px] font-mono text-slate-400 uppercase block text-center mb-2.5">
-              OR TEST WITH PRE-CONFIGURED DEMO ROLES
+              OR SIGN IN WITH PRE-CONFIGURED ENTERPRISE ROLES
             </span>
             <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
               <button

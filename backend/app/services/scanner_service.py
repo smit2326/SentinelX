@@ -1,9 +1,12 @@
 import asyncio
-import random
-from typing import Dict, Any, List
+import socket
+import ipaddress
+import platform
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
 from app.models.asset import Asset
 from app.models.vulnerability import Vulnerability
 from app.models.alert import Alert
@@ -12,92 +15,93 @@ from app.services.websocket_manager import ws_manager
 from app.services.audit_service import log_audit_event
 from app.core.logger import logger
 
-DISCOVERY_TEMPLATES = [
-    {
-        "ip_offset": 10,
-        "hostname": "k8s-node-worker-01.prod.lan",
-        "device_type": "Server",
-        "vendor": "Dell EMC",
-        "os_name": "Ubuntu Linux",
-        "os_version": "22.04 LTS (Jammy)",
-        "open_ports": [
-            {"port": 22, "protocol": "tcp", "service": "ssh", "state": "open", "version": "OpenSSH 8.9p1"},
-            {"port": 80, "protocol": "tcp", "service": "http", "state": "open", "version": "nginx/1.24.0"},
-            {"port": 443, "protocol": "tcp", "service": "https", "state": "open", "version": "nginx/1.24.0"},
-            {"port": 6443, "protocol": "tcp", "service": "kube-apiserver", "state": "open", "version": "Kubernetes v1.28"}
-        ],
-        "services": [{"name": "nginx", "version": "1.24.0"}, {"name": "kubelet", "version": "1.28.3"}],
-        "is_iot": False,
-        "is_cctv": False
-    },
-    {
-        "ip_offset": 45,
-        "hostname": "cctv-cam-perimeter-north.sec.lan",
-        "device_type": "CCTV Camera",
-        "vendor": "Hikvision Digital",
-        "os_name": "Embedded Linux",
-        "os_version": "V5.5.80",
-        "open_ports": [
-            {"port": 80, "protocol": "tcp", "service": "http-alt", "state": "open", "version": "GoAhead-Webs"},
-            {"port": 554, "protocol": "tcp", "service": "rtsp", "state": "open", "version": "Hikvision RTSP Server"},
-            {"port": 8000, "protocol": "tcp", "service": "dvr-mgmt", "state": "open", "version": "DVR Admin 2.1"}
-        ],
-        "services": [{"name": "rtsp", "version": "1.0"}, {"name": "onvif", "version": "2.4"}],
-        "is_iot": True,
-        "is_cctv": True,
-        "firmware_version": "v1.4.2-unpatched",
-        "cctv_stream_protocol": "RTSP (H.264)"
-    },
-    {
-        "ip_offset": 72,
-        "hostname": "bms-hvac-controller-b2.corp.lan",
-        "device_type": "IoT Device",
-        "vendor": "Schneider Electric",
-        "os_name": "FreeRTOS",
-        "os_version": "v10.4.3",
-        "open_ports": [
-            {"port": 80, "protocol": "tcp", "service": "http", "state": "open", "version": "Embedded HTTPd"},
-            {"port": 502, "protocol": "tcp", "service": "modbus", "state": "open", "version": "Modbus TCP Gateway"}
-        ],
-        "services": [{"name": "modbus-tcp", "version": "1.0"}],
-        "is_iot": True,
-        "is_cctv": False,
-        "firmware_version": "v2.1.0-sec"
-    },
-    {
-        "ip_offset": 105,
-        "hostname": "win-dc-ad01.corp.contoso.com",
-        "device_type": "Server",
-        "vendor": "Microsoft Corporation",
-        "os_name": "Windows Server",
-        "os_version": "2022 Datacenter",
-        "open_ports": [
-            {"port": 53, "protocol": "udp", "service": "dns", "state": "open", "version": "Microsoft DNS"},
-            {"port": 88, "protocol": "tcp", "service": "kerberos", "state": "open", "version": "Microsoft Kerberos"},
-            {"port": 389, "protocol": "tcp", "service": "ldap", "state": "open", "version": "Active Directory LDAP"},
-            {"port": 445, "protocol": "tcp", "service": "microsoft-ds", "state": "open", "version": "SMBv2/v3"},
-            {"port": 3389, "protocol": "tcp", "service": "ms-wbt-server", "state": "open", "version": "Microsoft RDP"}
-        ],
-        "services": [{"name": "active_directory", "version": "2022"}, {"name": "smb", "version": "3.1.1"}],
-        "is_iot": False,
-        "is_cctv": False
-    },
-    {
-        "ip_offset": 1,
-        "hostname": "edge-fw-pfsense.gw.lan",
-        "device_type": "Firewall",
-        "vendor": "Netgate",
-        "os_name": "FreeBSD",
-        "os_version": "14.0-RELEASE",
-        "open_ports": [
-            {"port": 22, "protocol": "tcp", "service": "ssh", "state": "open", "version": "OpenSSH 9.3"},
-            {"port": 443, "protocol": "tcp", "service": "https", "state": "open", "version": "pfSense WebGUI"}
-        ],
-        "services": [{"name": "pfsense", "version": "2.7.2"}],
-        "is_iot": False,
-        "is_cctv": False
-    }
+COMMON_PORTS = [
+    (21, "ftp", "FTP"),
+    (22, "ssh", "OpenSSH"),
+    (53, "dns", "DNS"),
+    (80, "http", "HTTP"),
+    (135, "msrpc", "Microsoft RPC"),
+    (139, "netbios-ssn", "NetBIOS"),
+    (443, "https", "HTTPS"),
+    (445, "microsoft-ds", "SMBv3"),
+    (554, "rtsp", "RTSP"),
+    (3389, "ms-wbt-server", "RDP"),
+    (5432, "postgresql", "PostgreSQL"),
+    (8000, "http-alt", "FastAPI / Uvicorn"),
+    (8080, "http-alt", "HTTP-Proxy")
 ]
+
+async def probe_port(ip: str, port: int, timeout: float = 0.35) -> Optional[Dict[str, Any]]:
+    """Probes a single TCP port using real asynchronous socket connection."""
+    try:
+        conn = asyncio.open_connection(ip, port)
+        reader, writer = await asyncio.wait_for(conn, timeout=timeout)
+        writer.close()
+        await writer.wait_closed()
+        
+        # Inferred service name
+        service_name = "unknown"
+        banner = None
+        for p, s, b in COMMON_PORTS:
+            if p == port:
+                service_name = s
+                banner = b
+                break
+
+        return {
+            "port": port,
+            "protocol": "tcp",
+            "service": service_name,
+            "state": "open",
+            "version": banner or f"Port {port} service"
+        }
+    except Exception:
+        return None
+
+async def scan_single_host(ip: str, ports_to_scan: List[int]) -> Optional[Dict[str, Any]]:
+    """Scans ports on a specific IP. Returns asset data only if at least one port is open."""
+    open_ports = []
+    tasks = [probe_port(ip, port) for port in ports_to_scan]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for r in results:
+        if isinstance(r, dict) and r:
+            open_ports.append(r)
+            
+    if not open_ports:
+        return None
+
+    # Resolve real hostname
+    try:
+        hostname = socket.gethostbyaddr(ip)[0]
+    except Exception:
+        hostname = None
+
+    device_type = "Workstation"
+    os_name = platform.system() if ip in ["127.0.0.1", "localhost"] else "Network Host"
+    is_cctv = any(p["port"] == 554 for p in open_ports)
+    if is_cctv:
+        device_type = "CCTV Camera"
+    elif any(p["port"] in [445, 135, 3389] for p in open_ports):
+        device_type = "Server" if "server" in (hostname or "").lower() else "Workstation"
+    elif any(p["port"] in [80, 443, 8000, 8080] for p in open_ports):
+        device_type = "Web Server / Gateway"
+
+    services = [{"name": p["service"], "version": p.get("version", "")} for p in open_ports]
+
+    return {
+        "ip_address": ip,
+        "hostname": hostname,
+        "device_type": device_type,
+        "vendor": "Local / Discovered",
+        "os_name": os_name,
+        "os_version": platform.release() if ip in ["127.0.0.1", "localhost"] else None,
+        "open_ports": open_ports,
+        "services": services,
+        "is_iot": is_cctv,
+        "is_cctv": is_cctv,
+        "cctv_stream_protocol": "RTSP" if is_cctv else None
+    }
 
 async def execute_network_discovery(
     db: AsyncSession,
@@ -105,57 +109,75 @@ async def execute_network_discovery(
     scan_type: str,
     actor_email: str
 ) -> Dict[str, Any]:
-    logger.info(f"Initiating network scan on subnet {target_subnet} (Type: {scan_type}) by {actor_email}")
+    logger.info(f"Initiating real network discovery scan on {target_subnet} (Type: {scan_type}) by {actor_email}")
     
-    # Broadcast start
     await ws_manager.broadcast_scan_update(
         progress=10,
-        status="ARP_PING_SWEEP",
-        details={"subnet": target_subnet, "message": f"Broadcasting ICMP/ARP probes across {target_subnet}"}
+        status="INITIALIZING_PROBES",
+        details={"subnet": target_subnet, "message": f"Parsing CIDR range and initializing real socket probes on {target_subnet}"}
     )
-    await asyncio.sleep(0.8)
     
+    # Parse target IPs
+    hosts_to_scan: List[str] = []
+    try:
+        if "/" in target_subnet:
+            net = ipaddress.ip_network(target_subnet, strict=False)
+            # Limit scan to max 32 hosts to keep execution fast and prevent timeouts
+            hosts_to_scan = [str(ip) for ip in list(net.hosts())[:32]]
+        else:
+            hosts_to_scan = [target_subnet.strip()]
+    except Exception:
+        # Fallback to localhost and local gateway
+        hosts_to_scan = ["127.0.0.1"]
+
+    # Always include 127.0.0.1 if target is 127.0.0.1 or contains it
+    if not hosts_to_scan:
+        hosts_to_scan = ["127.0.0.1"]
+
+    ports_to_scan = [p[0] for p in COMMON_PORTS]
+    if scan_type == "quick":
+        ports_to_scan = [80, 443, 8000, 22, 445]
+    elif scan_type == "cctv_iot":
+        ports_to_scan = [554, 80, 8080, 502]
+
     await ws_manager.broadcast_scan_update(
         progress=40,
-        status="PORT_FINGERPRINTING",
-        details={"subnet": target_subnet, "message": "Probing TCP/UDP service banners and SSL certificates..."}
+        status="ACTIVE_SOCKET_PROBING",
+        details={"subnet": target_subnet, "message": f"Actively probing {len(hosts_to_scan)} hosts across {len(ports_to_scan)} TCP ports..."}
     )
-    await asyncio.sleep(0.8)
-    
-    await ws_manager.broadcast_scan_update(
-        progress=75,
-        status="CCTV_IOT_HEURISTICS",
-        details={"subnet": target_subnet, "message": "Analyzing RTSP / ONVIF streams & embedded firmware..."}
-    )
-    await asyncio.sleep(0.8)
 
-    # Process templates & update/create assets
-    base_prefix = target_subnet.rsplit(".", 1)[0]
+    discovered_hosts = []
+    for idx, host_ip in enumerate(hosts_to_scan):
+        host_info = await scan_single_host(host_ip, ports_to_scan)
+        if host_info:
+            discovered_hosts.append(host_info)
+        prog = 40 + int((idx / len(hosts_to_scan)) * 45)
+        await ws_manager.broadcast_scan_update(
+            progress=prog,
+            status="PORT_FINGERPRINTING",
+            details={"subnet": target_subnet, "message": f"Inspected {host_ip} ({len(discovered_hosts)} responsive host(s) found so far)"}
+        )
+
+    # Save real discovered hosts to database
     discovered_count = 0
-    
-    for t in DISCOVERY_TEMPLATES:
-        ip = f"{base_prefix}.{t['ip_offset']}"
-        stmt = select(Asset).where(Asset.ip_address == ip)
+    for h in discovered_hosts:
+        stmt = select(Asset).where(Asset.ip_address == h["ip_address"])
         result = await db.execute(stmt)
         asset = result.scalars().first()
-        
-        mac_hex = f"52:54:00:{random.randint(10,99)}:{random.randint(10,99)}:{t['ip_offset']:02x}"
-        
+
         if not asset:
             asset = Asset(
-                ip_address=ip,
-                mac_address=mac_hex,
-                hostname=t["hostname"],
-                device_type=t["device_type"],
-                vendor=t["vendor"],
-                os_name=t["os_name"],
-                os_version=t["os_version"],
-                open_ports=t["open_ports"],
-                services=t["services"],
-                is_iot=t["is_iot"],
-                is_cctv=t["is_cctv"],
-                firmware_version=t.get("firmware_version"),
-                cctv_stream_protocol=t.get("cctv_stream_protocol"),
+                ip_address=h["ip_address"],
+                hostname=h["hostname"],
+                device_type=h["device_type"],
+                vendor=h["vendor"],
+                os_name=h["os_name"],
+                os_version=h["os_version"],
+                open_ports=h["open_ports"],
+                services=h["services"],
+                is_iot=h["is_iot"],
+                is_cctv=h["is_cctv"],
+                cctv_stream_protocol=h["cctv_stream_protocol"],
                 subnet=target_subnet,
                 last_scanned=datetime.now(timezone.utc)
             )
@@ -163,40 +185,39 @@ async def execute_network_discovery(
             await db.flush()
         else:
             asset.last_scanned = datetime.now(timezone.utc)
-            asset.open_ports = t["open_ports"]
-            asset.services = t["services"]
-            asset.os_version = t["os_version"]
-        
-        # Calculate risk score
+            asset.open_ports = h["open_ports"]
+            asset.services = h["services"]
+            if h["hostname"]:
+                asset.hostname = h["hostname"]
+
+        # Calculate actual risk score based on open ports
         vulns_res = await db.execute(select(Vulnerability).where(Vulnerability.affected_asset_id == asset.id))
         vulns = vulns_res.scalars().all()
-        
         alerts_res = await db.execute(select(Alert).where(Alert.affected_asset_id == asset.id))
         alerts = alerts_res.scalars().all()
-        
         asset.risk_score = calculate_asset_risk(asset, vulns, alerts)
         discovered_count += 1
-    
+
     await db.commit()
-    
+
     await ws_manager.broadcast_scan_update(
         progress=100,
         status="COMPLETED",
         details={
             "subnet": target_subnet,
             "discovered_assets": discovered_count,
-            "message": f"Scan completed. Discovered and fingerprinted {discovered_count} assets."
+            "message": f"Real active scan completed. Identified {discovered_count} responsive host(s)."
         }
     )
-    
+
     await log_audit_event(
         db=db,
-        action="ASSET_DISCOVERY_SCAN",
+        action="REAL_ASSET_DISCOVERY_SCAN",
         resource="scanner",
         actor_email=actor_email,
         details={"subnet": target_subnet, "type": scan_type, "discovered": discovered_count}
     )
-    
+
     return {
         "status": "success",
         "target_subnet": target_subnet,

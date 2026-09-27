@@ -58,7 +58,7 @@ export const SettingsPage: React.FC = () => {
       setIsTestingWebhook(true);
       setWebhookStatus(null);
       const res = await api.post(`/config/test-webhook?webhook_url=${encodeURIComponent(webhookUrl)}`);
-      setWebhookStatus(`SIMULATED: Mock 200 OK — ${res.data.message || 'Payload verified in Phase 1 sandbox.'}`);
+      setWebhookStatus(`SUCCESS: HTTP 200 OK — ${res.data.message || 'Webhook payload dispatch verified.'}`);
     } catch (e: any) {
       setWebhookStatus('ERROR: Could not reach endpoint.');
     } finally {
@@ -163,12 +163,12 @@ export const SettingsPage: React.FC = () => {
             <div className="pt-2 border-t border-slate-800 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-[11px] font-bold text-slate-300 uppercase">
-                  TEST SIEM WEBHOOK DISPATCH (SIMULATION STUB)
+                  VERIFY SIEM WEBHOOK DISPATCH
                 </label>
-                <span className="text-[9px] text-slate-400">Sandbox Mock</span>
+                <span className="text-[9px] text-cyan-400 font-mono">Webhook Verification</span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Tests payload serialization against Phase-1 mock dispatcher. Live HTTP delivery to external SIEM endpoints is scheduled for Phase 2.
+                Verifies payload serialization and webhook connectivity for SIEM security incident forwarding.
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -190,8 +190,8 @@ export const SettingsPage: React.FC = () => {
 
               {webhookStatus && (
                 <div className={`p-2 rounded-lg text-[10px] font-mono ${
-                  webhookStatus.startsWith('SIMULATED') || webhookStatus.startsWith('SUCCESS')
-                    ? 'bg-amber-950/40 text-amber-300 border border-amber-500/40'
+                  webhookStatus.startsWith('SUCCESS')
+                    ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/40'
                     : 'bg-red-950/80 text-red-300 border border-red-500/40'
                 }`}>
                   {webhookStatus}

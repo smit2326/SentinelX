@@ -11,11 +11,44 @@ from app.models.alert import Alert
 from app.schemas.asset import AssetOut, AssetCreate, AssetUpdate, ScanRequest
 from app.services.auth_service import require_any_authenticated, require_analyst_or_admin, require_admin
 from app.services.scanner_service import execute_network_discovery
+from app.services.nmap_service import get_nmap_info, execute_laptop_nmap_vuln_audit, get_local_machine_details
 from app.services.risk_engine import calculate_asset_risk
 from app.services.audit_service import log_audit_event
 from app.services.websocket_manager import ws_manager
 
 router = APIRouter(prefix="/assets", tags=["Asset Discovery & Inventory"])
+
+@router.get("/nmap/status")
+async def check_nmap_status(
+    current_user: User = Depends(require_any_authenticated)
+):
+    nmap_info = get_nmap_info()
+    host_details = get_local_machine_details()
+    return {
+        **nmap_info,
+        "host": host_details
+    }
+
+@router.post("/scan/laptop")
+async def trigger_laptop_nmap_scan(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_analyst_or_admin),
+    target_ip: Optional[str] = "127.0.0.1"
+):
+    async def _run():
+        async with AsyncSessionLocal() as session:
+            try:
+                await execute_laptop_nmap_vuln_audit(session, target_ip or "127.0.0.1", current_user.email)
+            except Exception as e:
+                print(f"Error in laptop nmap audit task: {e}")
+
+    background_tasks.add_task(_run)
+    return {
+        "status": "NMAP_LAPTOP_SCAN_DISPATCHED",
+        "target": target_ip or "127.0.0.1",
+        "dispatched_by": current_user.email,
+        "message": "Local laptop Nmap vulnerability scan dispatched. Real-time progress streaming over WebSocket."
+    }
 
 @router.get("", response_model=List[AssetOut])
 async def list_assets(
@@ -187,7 +220,11 @@ async def toggle_quarantine_asset(
 async def run_async_scan(target_subnet: str, scan_type: str, actor_email: str):
     async with AsyncSessionLocal() as db_session:
         try:
-            await execute_network_discovery(db_session, target_subnet, scan_type, actor_email)
+            if scan_type in ["nmap_vuln", "laptop_vuln"]:
+                target = target_subnet.split("/")[0] if "/" in target_subnet else target_subnet
+                await execute_laptop_nmap_vuln_audit(db_session, target or "127.0.0.1", actor_email)
+            else:
+                await execute_network_discovery(db_session, target_subnet, scan_type, actor_email)
         except Exception as e:
             print(f"Error in async scan task: {e}")
 

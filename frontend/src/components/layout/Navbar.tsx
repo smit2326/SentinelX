@@ -6,17 +6,7 @@ import { Badge } from '../common/Badge';
 
 export const Navbar: React.FC = () => {
   const { user, logout, loginAsRole } = useAuth();
-  const { isConnected, triggerSimulatedAlert, scanProgress } = useWebSocket();
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simSuccess, setSimSuccess] = useState(false);
-
-  const handleSimulate = async () => {
-    setIsSimulating(true);
-    await triggerSimulatedAlert();
-    setIsSimulating(false);
-    setSimSuccess(true);
-    setTimeout(() => setSimSuccess(false), 3000);
-  };
+  const { isConnected, scanProgress } = useWebSocket();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#070a12]/90 backdrop-blur-md">
@@ -31,10 +21,7 @@ export const Navbar: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="text-base font-extrabold tracking-wider text-white font-mono">SENTINEL-X</span>
                 <span className="rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/30">
-                  PHASE 1
-                </span>
-                <span className="hidden sm:inline-block rounded bg-amber-950/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/40 font-mono">
-                  SIMULATION MODE
+                  PHASE 2 NETWORK AWARE
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono">UNIFIED SECURITY PLATFORM</p>
@@ -44,10 +31,10 @@ export const Navbar: React.FC = () => {
           <div className="h-6 w-px bg-slate-800 ml-2" />
 
           {/* WebSocket Status Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono" title="Phase-1 WebSocket streaming synthetic SOC telemetry and incident events">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-xs font-mono" title="Live SOC telemetry and event stream">
             <Radio className={`h-3.5 w-3.5 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-amber-500'}`} />
             <span className={isConnected ? 'text-emerald-400' : 'text-amber-500'}>
-              {isConnected ? 'WS: SIMULATED SOC FEED' : 'CONNECTING...'}
+              {isConnected ? 'WS: SOC STREAM CONNECTED' : 'CONNECTING...'}
             </span>
           </div>
 
@@ -55,14 +42,14 @@ export const Navbar: React.FC = () => {
           {scanProgress && (
             <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-cyan-950/60 border border-cyan-500/40 text-xs font-mono text-cyan-300 animate-pulse">
               <RefreshCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-              <span>SIMULATED SCAN: {scanProgress.progress}% [{scanProgress.status}]</span>
+              <span>ACTIVE SCAN: {scanProgress.progress}% [{scanProgress.status}]</span>
             </div>
           )}
         </div>
 
-        {/* Right: Role switcher, Incident simulator & Profile */}
+        {/* Right: Role switcher & Profile */}
         <div className="flex items-center gap-3">
-          {/* Quick Demo Role Switcher */}
+          {/* Role Switcher */}
           <div className="hidden lg:flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs font-mono">
             <span className="text-slate-400 px-2 text-[11px]">ROLE:</span>
             <button
@@ -96,30 +83,6 @@ export const Navbar: React.FC = () => {
               AUDITOR
             </button>
           </div>
-
-          {/* Simulate Live Attack Alert */}
-          <button
-            onClick={handleSimulate}
-            disabled={isSimulating}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all shadow-md ${
-              simSuccess
-                ? 'bg-emerald-600 text-white border border-emerald-400'
-                : 'bg-red-950/70 hover:bg-red-900/80 text-red-300 border border-red-700/60 hover:border-red-500 shadow-red-950/50'
-            }`}
-            title="Inject a live simulated threat incident across WebSockets"
-          >
-            {simSuccess ? (
-              <>
-                <CheckCircle className="h-3.5 w-3.5 text-white" />
-                <span>ALERT BROADCAST!</span>
-              </>
-            ) : (
-              <>
-                <Zap className={`h-3.5 w-3.5 text-red-400 ${isSimulating ? 'animate-spin' : ''}`} />
-                <span>SIMULATE ATTACK</span>
-              </>
-            )}
-          </button>
 
           {/* User Profile */}
           <div className="flex items-center gap-3 pl-3 border-l border-slate-800">

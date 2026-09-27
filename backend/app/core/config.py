@@ -25,8 +25,6 @@ class Settings(BaseSettings):
     
     # Scanner & Telemetry Defaults
     DEFAULT_SUBNET: str = "192.168.1.0/24"
-    SIMULATION_ENABLED: bool = True
-    SIMULATION_INTERVAL_SECONDS: int = 15
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 
