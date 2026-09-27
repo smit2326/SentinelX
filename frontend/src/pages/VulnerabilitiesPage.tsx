@@ -126,24 +126,6 @@ export const VulnerabilitiesPage: React.FC = () => {
     }
   };
 
-  const handleLoadSampleReport = async () => {
-    try {
-      setIsUploadingReport(true);
-      setUploadFeedback(null);
-      const res = await api.post('/openvas/import-sample');
-      setUploadFeedback({
-        type: 'success',
-        text: `Sample report loaded! ${res.data.new_vulnerabilities} new CVEs added across ${res.data.assets_affected} infrastructure assets.`
-      });
-      await fetchVulns();
-      await fetchOpenVASStatus();
-    } catch (err: any) {
-      setUploadFeedback({ type: 'error', text: err.response?.data?.detail || 'Failed to load sample report.' });
-    } finally {
-      setIsUploadingReport(false);
-    }
-  };
-
   const handleTestConnection = async () => {
     try {
       setIsTestingConn(true);
@@ -561,22 +543,6 @@ export const VulnerabilitiesPage: React.FC = () => {
                       className="hidden"
                     />
                   </label>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div>
-                    <span className="text-white font-bold block text-xs">Demo OpenVAS Pipeline</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      Ingest authentic OpenVAS report with Router (CVE-2023-1389), CCTV (CVE-2021-36260), and Server CVEs.
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleLoadSampleReport}
-                    disabled={isUploadingReport}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500 transition-all font-bold whitespace-nowrap"
-                  >
-                    LOAD SAMPLE REPORT
-                  </button>
                 </div>
               </div>
             )}

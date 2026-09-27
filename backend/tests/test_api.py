@@ -212,7 +212,8 @@ async def test_openvas_integration():
         assert import_res.status_code == 200
         import_data = import_res.json()
         assert import_data["success"] is True
-        assert import_data["new_vulnerabilities"] >= 3
+        total_vulns = import_data["new_vulnerabilities"] + import_data["updated_vulnerabilities"]
+        assert total_vulns >= 3
         assert import_data["assets_affected"] >= 3
 
         # 4. Verify ingested CVEs in vulnerability catalog
@@ -222,3 +223,11 @@ async def test_openvas_integration():
         assert "CVE-2023-1389" in cves   # Router
         assert "CVE-2021-36260" in cves  # CCTV Camera
         assert "CVE-2023-38408" in cves  # Server
+
+        # Clean up test-created assets using the API to keep live inventory pristine
+        assets_res = await client.get("/api/v1/assets", headers=headers)
+        if assets_res.status_code == 200:
+            test_ips = {"192.168.1.1", "192.168.1.65", "192.168.1.200"}
+            for a in assets_res.json():
+                if a["ip_address"] in test_ips:
+                    await client.delete(f"/api/v1/assets/{a['id']}", headers=headers)

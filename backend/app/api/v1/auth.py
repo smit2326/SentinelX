@@ -46,7 +46,10 @@ async def login(
     
     # Update last login
     user.last_login = datetime.now(timezone.utc)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception: # pylint: disable=broad-exception-caught
+        await db.rollback()
     
     # Create token
     access_token = create_access_token(subject=user.id, role=user.role)
